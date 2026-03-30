@@ -1,21 +1,36 @@
 import os
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
+    bringup_dir = get_package_share_directory('agribot_bringup')
+    
+    # Slam Toolbox parameters
+    slam_config_path = os.path.join(bringup_dir, 'config', 'slam_toolbox_async.yaml')
+
     return LaunchDescription([
+        # 1. SLAM Toolbox Node
         Node(
-            package='hector_mapping',
-            executable='hector_mapping',
-            name='hector_mapping',
-            parameters=[{
-                'map_size': 2048,
-                'map_resolution': 0.05,
-                'scan_topic': 'scan',
-                'base_frame': 'base_link',
-                'map_frame': 'map',
-                'odom_frame': 'base_link'
-            }],
-            output='screen'
+            package='slam_toolbox',
+            executable='async_slam_toolbox_node',
+            name='slam_toolbox',
+            output='screen',
+            parameters=[
+                slam_config_path,
+                {'use_sim_time': LaunchConfiguration('use_sim_time', default='false')}
+            ]
+        ),
+        
+        # 2. Static Transform from odom to base_link (if not provided by odometry)
+        # Note: Slam Toolbox can handle the odom->base_link transform if set to publish, 
+        # but for a field bot, we often need a base transform.
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_tf_odom_to_base',
+            arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_link']
         )
     ])
