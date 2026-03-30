@@ -8,13 +8,16 @@ Agribot is an integrated ROS2-based solution for autonomous agricultural rovers.
 - **Vision-Driven Perception**: High-speed identification of crops and weeds using a YOLOv8-powered detection node.
 - **Intelligent Spraying**: Automated weed extermination via a front-mounted spray system triggered by vision proximity.
 - **Unified Orchestration**: A single launch file to bring up the entire sensor and processing suite.
+- **Hardware Agnostic**: Integrated support for RPLidar, USB Cameras, and Arduino-based motor controllers.
 
 ## 🛠️ System Architecture
 
 - `agribot_perception`: Vision processing (YOLOv8 + Camera).
-- `agribot_control`: Decision-making and spray actuation.
+- `agribot_control`: Decision-making, spray actuation, and motor bridge.
 - `agribot_msgs`: Custom ROS2 message interfaces.
-- `agribot_bringup`: Master launch system.
+- `agribot_bringup`: Modular and master launch system.
+- `agribot_description`: Physical URDF model for simulation and Rviz.
+- `agribot_simulation`: Gazebo field environment.
 
 ---
 
@@ -26,9 +29,6 @@ Recommended: **ROS2 Humble** on Ubuntu 22.04 (or WSL2).
 ```bash
 # Update system
 sudo apt update && sudo apt upgrade -y
-
-# Install ROS2 Humble (if not already installed)
-# Follow: https://docs.ros.org/en/humble/Installation.html
 ```
 
 ### 2. Install Hardware Drivers & Dependencies
@@ -37,21 +37,14 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install ros-humble-usb-cam \
                  ros-humble-cv-bridge \
                  ros-humble-sllidar-ros2 \
-                 ros-humble-tf2-geometry-msgs
+                 ros-humble-tf2-geometry-msgs \
+                 ros-humble-gazebo-ros-pkgs
 
 # Python dependencies
-pip install ultralytics opencv-python
+pip install ultralytics opencv-python pyserial
 ```
 
-### 3. Clone Required External Packages
-
-The system provides a base implementation, but you can also integrate these advanced external modules:
-- **LiDAR**: [Slamtec sllidar_ros2](https://github.com/Slamtec/sllidar_ros2.git)
-- **Vision**: [Robot Vision System](https://github.com/karnamsoujanya330-web/robot-vision-system.git), [Weed Detection (YOLO)](https://github.com/ManasiPandit48/Weed-Detection-usign-Yolo.git)
-- **Mapping**: [Hector SLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam.git), [Real-time 2D Mapping](https://github.com/freecode23/real-time-2D-mapping)
-- **Calibration**: [Direct Visual LiDAR Calibration](https://github.com/koide3/direct_visual_lidar_calibration.git)
-
-### 4. Build the Workspace
+### 3. Build the Workspace
 ```bash
 cd d:/agribot/agribot-v1_1
 colcon build --symlink-install
@@ -94,29 +87,35 @@ To view the robot's physical model and sensor frames in Rviz:
 ros2 launch agribot_description display.launch.py
 ```
 
-### 3. Monitor Topics
-- **Map**: `/map`
-- **Camera Feed**: `/camera/image_raw`
-- **Detections**: `/detections`
-- **Spray Actuator**: `/spray_actuator`
-
 ---
 
-## 🔧 Hardware Detail Instructions
+## ⚡ Motor Control & Hardware (Arduino Nano)
 
-### RP-LIDAR Setup
-- Connection: USB (typically `/dev/ttyUSB0`).
-- Ensure the user has permissions: `sudo chmod 666 /dev/ttyUSB0`.
+The Agribot uses an **Arduino Nano** as a dedicated real-time controller for the L298N motor drivers and safety sensors.
 
-### Camera Setup
-- Recommended mounting: Front-facing, angled slightly downwards.
-- Default device: `/dev/video0`.
+### 1. Wiring Diagram
+| Component | Arduino Pin | Description |
+| :--- | :--- | :--- |
+| **L298N ENA** | D3 (PWM) | Left Motor Speed |
+| **L298N IN1/2** | D2, D4 | Left Motor Direction |
+| **L298N ENB** | D5 (PWM) | Right Motor Speed |
+| **L298N IN3/4** | D7, D8 | Right Motor Direction |
+| **HC-SR04 TRIG** | D9 | Ultrasonic Trigger |
+| **HC-SR04 ECHO** | D10 | Ultrasonic Echo |
+| **ACS712 SENSE** | A0 | Current Measurement |
 
-### Spray Actuator
-- The `spray_controller` publishes a `std_msgs/Bool` to `/spray_actuator`.
-- **High (True)**: Open nozzle.
-- **Low (False)**: Close nozzle.
-- This signal should be read by an Arduino/GPIO node to control the physical relay/valve.
+### 2. Serial Protocol (9600 Baud)
+The Raspberry Pi sends high-level commands, and the Arduino Nano handles the PWM and safety overrides.
+- `F:speed` - Forward
+- `B:speed` - Backward
+- `L:speed` - Turn Left
+- `R:speed` - Turn Right
+- `S` - Stop
+- **Speed**: 0-255
+
+### 3. Safety & Feedback
+The Arduino automatically stops motors if an obstacle is detected within **20cm**. It reports status every 500ms:
+`SPEED:xxx,DIST:xxx,CURR:xxx`
 
 ---
 
@@ -128,7 +127,6 @@ To make the Agribot detect weeds effectively, you need a YOLOv8 model trained sp
 Search for these on [Roboflow Universe](https://universe.roboflow.com/):
 - **"Sugar Beet Weeds"**: popular for identifying weeds among sugar beet crops.
 - [Crop and Weed Detection Dataset](https://universe.roboflow.com/mohamed-traore-2ekkp/crop-and-weed-detection-p6764)
-- [Weed Detection in Soybean](https://universe.roboflow.com/v-z_l/weed-detection-soybean)
 
 ### 2. Training the YOLOv8 Model
 ```python
@@ -142,15 +140,12 @@ results = model.train(
 )
 ```
 
-### 3. Integrating the Trained Model
-1. Copy your `best.pt` to the workspace.
-2. Update `main_launch.py` with the path to your `.pt` file.
-3. Ensure `target_label` in `agribot_control` matches your dataset class (e.g., "weed").
-
 ---
 
 ## 📊 Documentation & References
 
+- [Arduino Firmware](agribot_firmware/agribot_motor_control.ino)
+- [ROS2 Motor Bridge](src/agribot_control/agribot_control/motor_bridge.py)
 - [Detection Message Specs](src/agribot_msgs/msg/Detection.msg)
 - [Spray Logic Parameters](src/agribot_control/agribot_control/spray_controller.py)
-- [Hector SLAM Config](src/agribot_bringup/launch/main_launch.py)
+- [Simulation Config](src/agribot_simulation/launch/simulation.launch.py)
