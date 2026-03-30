@@ -62,24 +62,43 @@ source install/setup.bash
 
 ## 🏎️ Running the Bot
 
-### 1. Calibrate & Map
-Run the master launch file to start sensors, mapping, and detection:
+The system is now modular. You can run the entire stack or individual components.
+
+### 1. Full System Launch
+This single command starts LiDAR, Hector SLAM, YOLOv8 Perception, and Spray Control:
 ```bash
 ros2 launch agribot_bringup main_launch.py
 ```
 
-### 2. Monitor Output
-Open **RViz2** to visualize the map and detections:
+### 2. Modular Control
+- **LiDAR Driver**: `ros2 launch agribot_bringup lidar.launch.py`
+- **Hector SLAM Mapping**: `ros2 launch agribot_bringup navigation.launch.py`
+- **Vision/Perception**: `ros2 launch agribot_bringup perception.launch.py`
+- **Control/Actuation**: `ros2 launch agribot_bringup control.launch.py`
+
+---
+
+## 🤖 Gazebo Simulation
+
+If you don't have the physical hardware, you can run the system in a virtual environment.
+
+### 1. Launch Simulation
+This opens Gazebo and spawns the Agribot rover:
 ```bash
-rviz2
-# Add Map, RobotModel, and Detection markers (via /detections)
+ros2 launch agribot_simulation simulation.launch.py
 ```
 
-### 3. Verify Spray Actuator
-The nozzle triggers automatically when a weed label is detected in the bottom 25% of the camera frame. You can monitor the trigger topic:
+### 2. Model Visualization
+To view the robot's physical model and sensor frames in Rviz:
 ```bash
-ros2 topic echo /spray_actuator
+ros2 launch agribot_description display.launch.py
 ```
+
+### 3. Monitor Topics
+- **Map**: `/map`
+- **Camera Feed**: `/camera/image_raw`
+- **Detections**: `/detections`
+- **Spray Actuator**: `/spray_actuator`
 
 ---
 
