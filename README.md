@@ -68,6 +68,7 @@ ros2 launch agribot_bringup main_launch.py
 - **Hector SLAM Mapping**: `ros2 launch agribot_bringup navigation.launch.py`
 - **Vision/Perception**: `ros2 launch agribot_bringup perception.launch.py`
 - **Control/Actuation**: `ros2 launch agribot_bringup control.launch.py`
+- **Manual Keyboard Control**: `ros2 launch agribot_bringup teleop.launch.py`
 
 ---
 
