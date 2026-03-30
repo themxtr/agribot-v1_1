@@ -35,9 +35,9 @@ pip install ultralytics opencv-python pyserial
 
 ### 3. Build the Workspace
 > [!IMPORTANT]
-> Ensure you have removed any legacy ROS 1 (Catkin) packages like old `hector_slam` to avoid build errors.
+> All packages in this workspace use **ament_python** (no CMake). This avoids legacy ROS 1 build errors and is cleaner for Python-based ROS 2 nodes.
 ```bash
-cd d:/agribot/agribot-v1_1
+cd ~/agribot-v1_1
 colcon build --symlink-install
 source install/setup.bash
 ```
