@@ -1,0 +1,4 @@
+This project implements an embedded robot vision system using OpenCV.
+A camera captures real-time video frames which are converted from RGB to HSV color space.
+Color thresholding is applied to detect specific objects based on color.
+The system demonstrates how robots perceive and interpret their surroundings using vision sensors.

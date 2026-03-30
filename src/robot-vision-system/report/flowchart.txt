@@ -1,0 +1,15 @@
+Start
+↓
+Initialize Camera
+↓
+Capture Frame
+↓
+Convert RGB to HSV
+↓
+Apply Color Threshold
+↓
+Detect Object
+↓
+Display Output
+↓
+Repeat

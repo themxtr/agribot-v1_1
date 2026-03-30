@@ -44,11 +44,12 @@ pip install ultralytics opencv-python
 ```
 
 ### 3. Clone Required External Packages
-```bash
-cd d:/agribot/agribot-v1_1/src
-# Hector SLAM ROS2 Port
-git clone https://github.com/Humpelstilzchen/hector_slam.git -b ros2
-```
+
+The system provides a base implementation, but you can also integrate these advanced external modules:
+- **LiDAR**: [Slamtec sllidar_ros2](https://github.com/Slamtec/sllidar_ros2.git)
+- **Vision**: [Robot Vision System](https://github.com/karnamsoujanya330-web/robot-vision-system.git), [Weed Detection (YOLO)](https://github.com/ManasiPandit48/Weed-Detection-usign-Yolo.git)
+- **Mapping**: [Hector SLAM](https://github.com/tu-darmstadt-ros-pkg/hector_slam.git), [Real-time 2D Mapping](https://github.com/freecode23/real-time-2D-mapping)
+- **Calibration**: [Direct Visual LiDAR Calibration](https://github.com/koide3/direct_visual_lidar_calibration.git)
 
 ### 4. Build the Workspace
 ```bash
@@ -97,6 +98,35 @@ ros2 topic echo /spray_actuator
 - **High (True)**: Open nozzle.
 - **Low (False)**: Close nozzle.
 - This signal should be read by an Arduino/GPIO node to control the physical relay/valve.
+
+---
+
+## 🌿 Weed Detection: Training & Dataset Guide
+
+To make the Agribot detect weeds effectively, you need a YOLOv8 model trained specifically on agricultural datasets.
+
+### 1. Finding Datasets on Roboflow
+Search for these on [Roboflow Universe](https://universe.roboflow.com/):
+- **"Sugar Beet Weeds"**: popular for identifying weeds among sugar beet crops.
+- [Crop and Weed Detection Dataset](https://universe.roboflow.com/mohamed-traore-2ekkp/crop-and-weed-detection-p6764)
+- [Weed Detection in Soybean](https://universe.roboflow.com/v-z_l/weed-detection-soybean)
+
+### 2. Training the YOLOv8 Model
+```python
+from ultralytics import YOLO
+model = YOLO('yolov8n.pt')
+results = model.train(
+    data='path/to/roboflow/data.yaml',
+    epochs=100,
+    imgsz=640,
+    name='agribot_weed_model'
+)
+```
+
+### 3. Integrating the Trained Model
+1. Copy your `best.pt` to the workspace.
+2. Update `main_launch.py` with the path to your `.pt` file.
+3. Ensure `target_label` in `agribot_control` matches your dataset class (e.g., "weed").
 
 ---
 
