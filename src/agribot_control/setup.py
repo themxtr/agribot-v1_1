@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'spray_controller = agribot_control.spray_controller:main'
+            'spray_controller = agribot_control.spray_controller:main',
+            'motor_bridge = agribot_control.motor_bridge:main'
         ],
     },
 )

@@ -10,5 +10,12 @@ def generate_launch_description():
             name='spray_controller',
             parameters=[{'spray_threshold_y': 400, 'target_label': 'weed'}],
             output='screen'
+        ),
+        Node(
+            package='agribot_control',
+            executable='motor_bridge',
+            name='motor_bridge',
+            parameters=[{'port': '/dev/ttyUSB1', 'baud': 9600}],
+            output='screen'
         )
     ])
