@@ -1,283 +1,183 @@
-# 🌾 Agribot v1.1 — Autonomous Crop Field Management System
+# 🌾 Agribot v1.1: Production-Grade Autonomous Weed Management
 
-Agribot is a ROS 2 (Humble) based autonomous agricultural rover designed to:
-1. **Map** crop fields using SLAM Toolbox and RP-LiDAR
-2. **Detect** crops and weeds in real-time using a YOLOv8 camera vision pipeline
-3. **Spray** identified weeds automatically via a front-mounted actuator
-4. **Navigate** manually or autonomously using keyboard teleop
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
+![ROS2](https://img.shields.io/badge/ROS2-Humble-orange.svg)
+![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-red.svg)
 
-The system runs on a **Raspberry Pi** (ROS 2 brain) + **Arduino Nano** (real-time motor control) architecture.
+Agribot is a ROS 2 Humble-based autonomous agricultural robot designed for precision weed management. It is explicitly optimized for real-time execution on the **Raspberry Pi 5**, utilizing a modular architecture, lifecycle-managed nodes, and a predictive latency-compensation pipeline.
 
 ---
 
-## 📁 Repository Structure
+## 📖 Project Overview
 
-```
-agribot-v1_1/
-├── agribot_firmware/          # Arduino Nano firmware (.ino)
-├── src/
-│   ├── agribot_msgs/          # Custom message definitions
-│   ├── agribot_perception/    # YOLOv8 camera detection node
-│   ├── agribot_control/       # Spray controller + Arduino serial bridge
-│   ├── agribot_bringup/       # All launch files + config
-│   │   ├── launch/
-│   │   │   ├── main_launch.py       # Full system launch
-│   │   │   ├── lidar.launch.py      # LiDAR driver only
-│   │   │   ├── navigation.launch.py # SLAM Toolbox mapping
-│   │   │   ├── perception.launch.py # Camera + YOLOv8
-│   │   │   ├── control.launch.py    # Spray + Motor bridge
-│   │   │   └── teleop.launch.py     # Keyboard teleop + Motor bridge
-│   │   └── config/
-│   │       └── slam_toolbox_async.yaml
-│   ├── agribot_description/   # URDF robot model
-│   └── agribot_simulation/    # Gazebo simulation world
-└── README.md
-```
+Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-resource systems, this project targets the Raspberry Pi 5 CPU, using lightweight **YOLOv8n ONNX** models and efficient C++/Python nodes to achieve high precision and deterministic actuation.
+
+### Operational Modes
+1.  **SCAN**: Traverses the field using LiDAR and row-detection to build a spatial map of crop lanes.
+2.  **DETECT**: High-frequency (5 FPS) visual inference to classify plants as `crop` or `weed`.
+3.  **SPRAY**: Targeted actuation with predictive pose compensation to hit weed stems at variable speeds.
 
 ---
 
-## ⚙️ Prerequisites
+## ✨ Key Features
 
-### System Requirements
-- **OS**: Ubuntu 22.04 (or WSL2 on Windows)
+-   **RPi5-Optimized Inference**: Replaces heavy GPU stacks with **ONNX Runtime** and **YOLOv8n**.
+-   **Lifecycle Nodes**: Managed node states (Configure/Activate/Deactivate) for aggressive CPU/Power management.
+-   **Latency Compensation**: Predicts the robot's future pose to trigger the spray nozzle exactly at the target arrival time.
+-   **RANSAC Row Detection**: Lightweight geometric mapping of crop rows, eliminating the need for full SLAM in structured fields.
+-   **Pre-Fire Validation**: Final verification step to minimize accidental crop damage.
+
+---
+
+## 🏗 System Architecture
+
+| Package | Responsibility |
+| :--- | :--- |
+| `agribot_msgs` | Custom messages, actions, and services (Detection, SprayAction). |
+| `agribot_perception` | ONNX Runtime-based plant detection and dataset preprocessing. |
+| `agribot_detection_manager` | Mode orchestration (SCAN, DETECT, SPRAY) via Lifecycle states. |
+| `agribot_mapping` | Row detection and coordinate frame transformations. |
+| `agribot_actuation` | Action server for predictive spraying and latency modeling. |
+| `agribot_bringup` | Master launch files and global configuration management. |
+| `agribot_description` | URDF robot model and physical parameters. |
+
+---
+
+## 💻 Software Requirements
+
+### Environment
+- **OS**: Ubuntu 22.04 LTS (Jammy Jellyfish)
 - **ROS 2**: Humble Hawksbill
 - **Python**: 3.10+
 
-### 1. Install ROS 2 Humble
-Follow the official guide: https://docs.ros.org/en/humble/Installation.html
-
-### 2. Install Dependencies
+### Dependencies
 ```bash
+# System Dependencies
 sudo apt update && sudo apt install -y \
-  ros-humble-usb-cam \
-  ros-humble-cv-bridge \
-  ros-humble-tf2-geometry-msgs \
-  ros-humble-gazebo-ros-pkgs \
-  ros-humble-slam-toolbox \
-  ros-humble-teleop-twist-keyboard \
-  ros-humble-robot-state-publisher \
-  ros-humble-joint-state-publisher \
-  ros-humble-xacro
+  ros-humble-usb-cam ros-humble-cv-bridge \
+  ros-humble-tf2-geometry-msgs ros-humble-slam-toolbox \
+  ros-humble-teleop-twist-keyboard ros-humble-xacro
 
-pip3 install ultralytics opencv-python pyserial
-```
-
-### 3. Clone and Build
-```bash
-# Clone the repository
-git clone https://github.com/themxtr/agribot-v1_1.git ~/agribot-v1_1
-cd ~/agribot-v1_1
-
-# Clone the RP-LiDAR driver (must be in src/)
-git clone https://github.com/Slamtec/sllidar_ros2.git src/sllidar_ros2
-
-# Build
-colcon build --symlink-install
-
-# Source the workspace (add this to ~/.bashrc)
-source install/setup.bash
+# Python ML Runtime
+pip3 install onnxruntime opencv-python numpy ultralytics
 ```
 
 ---
 
-## 🔌 Hardware Connections
+## 🛠 Installation & Build
 
-### Raspberry Pi → Arduino Nano (Serial)
-| Raspberry Pi | Arduino Nano | Purpose |
-|:---|:---|:---|
-| USB port | USB (native) | Serial command link at 9600 baud |
-| `/dev/ttyUSB1` | USB | Motor commands & feedback |
-
-### Arduino Nano → L298N Motor Driver
-| Arduino Pin | L298N Pin | Purpose |
-|:---|:---|:---|
-| D3 (PWM) | ENA | Left motor speed |
-| D2 | IN1 | Left motor direction |
-| D4 | IN2 | Left motor direction |
-| D5 (PWM) | ENB | Right motor speed |
-| D7 | IN3 | Right motor direction |
-| D8 | IN4 | Right motor direction |
-
-### Arduino Nano → Sensors
-| Arduino Pin | Component | Purpose |
-|:---|:---|:---|
-| D9 | HC-SR04 TRIG | Obstacle detection trigger |
-| D10 | HC-SR04 ECHO | Obstacle detection echo |
-| A0 | ACS712 OUT | Motor current sensing |
-
-### Raspberry Pi → LiDAR & Camera
-| Device | Connection | ROS Topic |
-|:---|:---|:---|
-| RP-LiDAR (Slamtec) | USB → `/dev/ttyUSB0` | `/scan` |
-| USB Camera | USB → `/dev/video0` | `/image_raw` |
+1.  **Clone the Workspace**:
+    ```bash
+    git clone https://github.com/themxtr/agribot-v1_1.git ~/agribot_ws
+    cd ~/agribot_ws
+    ```
+2.  **Install ROS Dependencies**:
+    ```bash
+    rosdep install -i --from-path src --rosdistro humble -y
+    ```
+3.  **Build**:
+    ```bash
+    colcon build --symlink-install
+    source install/setup.bash
+    ```
 
 ---
 
-## 🚀 Launch Files
+## 👁️ Computer Vision Deployment (PC-to-Pi Workflow)
 
-### 1. Full System (Mapping + Vision + Control)
-Starts everything: LiDAR, SLAM, Camera, YOLOv8, Spray, and Motor Bridge.
-```bash
-ros2 launch agribot_bringup main_launch.py
-```
+**Important**: YOLOv8 is **not** trained on the Raspberry Pi 5. To ensure production-grade performance, follow this specific "Train on PC, Deploy on Pi" pipeline.
 
----
-
-### 2. LiDAR Driver Only
-Starts the Slamtec RP-LiDAR node and publishes `/scan`.
-```bash
-ros2 launch agribot_bringup lidar.launch.py
-```
-> Serial port: `/dev/ttyUSB0` · Baud: `115200`
-
----
-
-### 3. Mapping (SLAM Toolbox)
-Starts SLAM Toolbox in asynchronous mode. Requires LiDAR to be running.
-```bash
-# Terminal 1
-ros2 launch agribot_bringup lidar.launch.py
-
-# Terminal 2
-ros2 launch agribot_bringup navigation.launch.py
-```
-Open **RViz2** and add a **Map** display on topic `/map` to visualize field mapping.
-
-**Save a completed map:**
-```bash
-ros2 run nav2_map_server map_saver_cli -f ~/agribot_map
-```
-
----
-
-### 4. Perception (Camera + YOLOv8)
-Starts the USB camera driver and the YOLOv8 detection node.
-```bash
-ros2 launch agribot_bringup perception.launch.py
-```
-- **Subscribes**: `/image_raw`
-- **Publishes**: `/detections` (custom `DetectionArray` message)
-
----
-
-### 5. Control (Spray + Motor Bridge)
-Starts the spray controller and the Arduino serial bridge.
-```bash
-ros2 launch agribot_bringup control.launch.py
-```
-- **Spray**: subscribes to `/detections`, publishes to `/spray_actuator`
-- **Motor Bridge**: subscribes to `/cmd_vel`, sends serial commands to Arduino
-- Arduino serial port: `/dev/ttyUSB1`
-
----
-
-### 6. Manual Keyboard Control (Teleop)
-Starts the motor bridge and keyboard teleop together for manual driving.
-```bash
-ros2 launch agribot_bringup teleop.launch.py
-```
-**Keyboard controls** (once running):
-| Key | Action |
-|:---|:---|
-| `i` | Forward |
-| `,` | Backward |
-| `j` | Turn left |
-| `l` | Turn right |
-| `k` | Stop |
-| `q`/`z` | Increase/decrease max speed |
-
----
-
-### 7. Simulation (Gazebo)
-Runs the robot in a virtual Gazebo environment without physical hardware.
-```bash
-ros2 launch agribot_simulation simulation.launch.py
-```
-
----
-
-## 👁️ Running the Computer Vision (YOLOv8) System
-
-### Step 1 — Install the ML dependency
-```bash
-pip3 install ultralytics
-```
-
-### Step 2 — Get a Weed Detection Model
-
-**Option A: Use the default pretrained YOLOv8 model (no weeds, for testing)**
-The system defaults to `yolov8n.pt` which will download automatically on first run.
-
-**Option B: Train a custom weed detection model (recommended)**
-
-1. Go to [Roboflow Universe](https://universe.roboflow.com/) and search for:
-   - `"weed detection"` or `"crop and weed"`
-   - Recommended: [Crop and Weed Detection](https://universe.roboflow.com/mohamed-traore-2ekkp/crop-and-weed-detection-p6764)
-
-2. Download and train:
+### 1. Training (on Development PC / GPU)
+Use a separate machine with a GPU to train your model using the [Ultralytics](https://github.com/ultralytics/ultralytics) library.
 ```python
 from ultralytics import YOLO
 
-model = YOLO('yolov8n.pt')
-model.train(
-    data='path/to/roboflow/data.yaml',
-    epochs=100,
-    imgsz=640,
-    name='agribot_weed_model'
-)
-# Output: runs/detect/agribot_weed_model/weights/best.pt
+# Load a nano model for RPi5 compatibility
+model = YOLO('yolov8n.pt') 
+
+# Train on your dataset (e.g., CropAndWeedDataset)
+model.train(data='custom_weeds.yaml', epochs=100, imgsz=640)
 ```
 
-### Step 3 — Run the Perception Node
-```bash
-# With default model
-ros2 launch agribot_bringup perception.launch.py
-
-# With your custom trained model
-ros2 run agribot_perception detection_node \
-  --ros-args -p model_path:=/path/to/best.pt -p confidence_threshold:=0.5
+### 2. Export to ONNX (on PC)
+Export the trained weights (`best.pt`) to the lightweight **ONNX** format.
+```python
+model.export(format='onnx') # Produces 'best.onnx'
 ```
 
-### Step 4 — Monitor Detections
-```bash
-# Watch detection output
-ros2 topic echo /detections
+### 3. Deploy to Raspberry Pi 5
+Transfer `best.onnx` to the Pi 5 (e.g., via `scp`).
+1.  **Placement**: Save to `src/agribot_perception/models/agribot_v8.onnx`.
+2.  **Runtime**: The `agribot_perception` node uses **ONNX Runtime (CPU)** to execute the model. No GPU or "Ultralytics installation" is required on the Pi during field execution.
 
-# Check camera feed
-ros2 run rqt_image_view rqt_image_view
-```
-
-### ROS Topics Summary
-| Topic | Type | Direction |
-|:---|:---|:---|
-| `/scan` | `sensor_msgs/LaserScan` | LiDAR → SLAM |
-| `/map` | `nav_msgs/OccupancyGrid` | SLAM output |
-| `/image_raw` | `sensor_msgs/Image` | Camera → YOLOv8 |
-| `/detections` | `agribot_msgs/DetectionArray` | YOLOv8 → Spray controller |
-| `/spray_actuator` | `std_msgs/Bool` | Spray command |
-| `/cmd_vel` | `geometry_msgs/Twist` | Navigation → Arduino |
-| `/motor_feedback` | `std_msgs/String` | Arduino → ROS (`SPEED:x,DIST:x,CURR:x`) |
+### 4. Performance Expectations
+| Param | Target Performance (RPi5 CPU) |
+| :--- | :--- |
+| **Model** | YOLOv8n (Nano) |
+| **Resolution** | 640x640 (standard) or 320x320 (high FPS) |
+| **Inference Speed** | 3–5 FPS (standard), ~8 FPS (optimized) |
+| **Inference Engine** | ONNX Runtime (CPUExecutionProvider) |
+| **CPU Load** | ~60-80% (single core peak) |
 
 ---
 
-## 🔧 Arduino Firmware
+## 🚀 Running the System
 
-Flash `agribot_firmware/agribot_motor_control.ino` to the Arduino Nano using the Arduino IDE.
+### Full System Launch
+Starts LiDAR, Camera, SLAM, Perception, and Control Bridge.
+```bash
+ros2 launch agribot_bringup main_launch.py model_path:=/path/to/model.onnx
+```
 
-**Serial Protocol (9600 baud):**
-- `F:200` → Forward at speed 200
-- `B:150` → Backward at speed 150
-- `L:180` → Turn left at speed 180
-- `R:180` → Turn right at speed 180
-- `S` → Stop
+### Perception Verification
+To run only the camera and weed detection node:
+```bash
+ros2 launch agribot_bringup perception.launch.py model_path:=/path/to/model.onnx
+```
+- **Verify Topics**: `ros2 topic echo /detections`
+- **Visualize**: `ros2 run rqt_image_view rqt_image_view`
 
-**Automatic safety**: Motors stop if obstacle detected within 20 cm.
+### Mode Switching
+Switch between operational modes via String messages:
+```bash
+# Switch to DETECT mode for active weed tracking
+ros2 topic pub /set_mode std_msgs/msg/String "data: 'DETECT'" --once
+```
+
+---
+
+## 📏 Calibration Guide
+
+1.  **Camera Intrinsics**: Run `ros2 run camera_calibration cameracalibrator` to eliminate lens distortion.
+2.  **Extrinsics (Camera-to-Nozzle)**: Measure physical offset from camera center to nozzle tip. Update the static transform in `agribot_bringup/config/positions.yaml`.
+3.  **Latency Modeling**: Tune `system_latency_ms` in the `agribot_actuation` node config. If at speed $V$, the spray hits $D$ meters after the weed, add $(D/V) \times 1000$ to your current latency.
+
+---
+
+## 🔌 Hardware Setup
+
+### Pi to Arduino Serial
+- **Port**: `/dev/ttyUSB1` (fixed via udev rules for robustness)
+- **Baud**: 9600
+
+### Pinout (Arduino Nano)
+| Pin | Component | Description |
+| :--- | :--- | :--- |
+| **D3/D5** | L298N PWM | Motor Speed Control |
+| **D2/D4/D7/D8** | L298N Digital | Forward/Reverse logic |
+| **D9/D10** | HC-SR04 | Obstacle avoidance (20cm safety stop) |
+
+---
+
+## 🔧 Troubleshooting
+
+-   **Low FPS**: Ensure the Pi 5 is not thermal throttling. Reduce `imgsz` to 320.
+-   **No Detections**: Check if the model input resolution matches the node's `input_width`/`input_height` parameters.
+-   **Misaligned Spray**: Re-validate `system_latency_ms`. Ensure robot speed is consistent during spray approach.
 
 ---
 
 ## 📎 References
-
-- [Slamtec sllidar_ros2](https://github.com/Slamtec/sllidar_ros2)
-- [SLAM Toolbox](https://github.com/SteveMacenski/slam_toolbox)
-- [Ultralytics YOLOv8](https://docs.ultralytics.com/)
-- [Roboflow Universe](https://universe.roboflow.com/)
+- [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/)
+- [ONNX Runtime Python API](https://onnxruntime.ai/docs/api/python/)
+- [ROS2 Humble Documentation](https://docs.ros.org/en/humble/)

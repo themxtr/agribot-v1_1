@@ -1,0 +1,12 @@
+# Goal
+geometry_msgs/PoseStamped target_pose
+float32 delay_compensation_ms
+---
+# Result
+bool success
+string message
+---
+# Feedback
+float32 distance_to_target
+float32 time_to_trigger
+bool pre_fire_validated

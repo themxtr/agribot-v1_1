@@ -23,7 +23,8 @@ def generate_launch_description():
 
     # 3. Perception
     perception_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(bringup_dir, 'launch', 'perception.launch.py'))
+        PythonLaunchDescriptionSource(os.path.join(bringup_dir, 'launch', 'perception.launch.py')),
+        launch_arguments={'model_path': LaunchConfiguration('model_path')}.items()
     )
 
     # 4. Control
@@ -33,6 +34,7 @@ def generate_launch_description():
 
     ld = LaunchDescription()
     ld.add_action(DeclareLaunchArgument('use_sim_time', default_value='false'))
+    ld.add_action(DeclareLaunchArgument('model_path', default_value='src/agribot_perception/models/yolov8n.onnx'))
     ld.add_action(lidar_launch)
     ld.add_action(navigation_launch)
     ld.add_action(perception_launch)

@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'detection_node = agribot_perception.detection_node:main'
+            'perception_node = agribot_perception.perception_node:main',
+            'dataset_prep = agribot_perception.scripts.rpi_dataset_prep:main'
         ],
     },
 )
