@@ -22,6 +22,7 @@ class PerceptionNode(Node):
         self.bridge = CvBridge()
         self.session = None
         self.last_inference_time = 0
+        self.health_pub = self.create_publisher(Point, 'perception_health', 10)
         
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring Perception Node...')
@@ -36,8 +37,13 @@ class PerceptionNode(Node):
             # Initialize ONNX Runtime session
             self.session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
             self.get_logger().info(f'Loaded ONNX model from {model_path}')
+            
+            # Warm-up pass
+            dummy_input = np.zeros((1, 3, *self.input_size), dtype=np.float32)
+            self.session.run(None, {self.session.get_inputs()[0].name: dummy_input})
+            self.get_logger().info('Model warm-up pass successful.')
         except Exception as e:
-            self.get_logger().error(f'Failed to load ONNX model: {str(e)}')
+            self.get_logger().error(f'Failed to load/warm-up ONNX model: {str(e)}')
             return TransitionCallbackReturn.FAILURE
 
         self.publisher = self.create_lifecycle_publisher(DetectionArray, 'detections', 10)

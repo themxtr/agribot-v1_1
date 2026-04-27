@@ -46,5 +46,13 @@ def generate_launch_description():
             name='latency_compensated_sprayer',
             output='screen',
             parameters=[{'system_latency_ms': 200.0}]
+        ),
+        
+        # System Guard (Safety Monitor)
+        Node(
+            package='agribot_bringup',
+            executable='system_guard',
+            name='system_guard',
+            output='screen'
         )
     ])

@@ -16,7 +16,9 @@ class SprayerActionServer(Node):
             self.execute_callback)
         
         self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_cb, 10)
+        self.safety_sub = self.create_subscription(Bool, 'safety_lock', self.lock_cb, 10)
         self.current_velocity = 0.0
+        self.is_locked = True
         self.declare_parameter('system_latency_ms', 200.0) # Default 200ms
         
         self.get_logger().info('Latency Compensated Sprayer node started.')
@@ -24,7 +26,15 @@ class SprayerActionServer(Node):
     def odom_cb(self, msg):
         self.current_velocity = msg.twist.twist.linear.x
 
+    def lock_cb(self, msg):
+        self.is_locked = msg.data
+
     async def execute_callback(self, goal_handle):
+        if self.is_locked:
+            self.get_logger().warn('SPRAY ATTEMPTED WHILE LOCKED! Aborting.')
+            goal_handle.abort()
+            return SprayAction.Result(success=False, message="Locked")
+
         self.get_logger().info('Executing spray goal...')
         feedback_msg = SprayAction.Feedback()
         

@@ -7,7 +7,7 @@ package_name = 'agribot_bringup'
 setup(
     name=package_name,
     version='1.0.0',
-    packages=[], # No python code packages here, just launch files
+    packages=['agribot_bringup'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -23,6 +23,8 @@ setup(
     license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'system_guard = agribot_bringup.system_guard:main'
+        ],
     },
 )

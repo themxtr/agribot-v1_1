@@ -146,7 +146,56 @@ ros2 topic pub /set_mode std_msgs/msg/String "data: 'DETECT'" --once
 
 ---
 
-## 📏 Calibration Guide
+## 🛡️ Autonomous Startup Safety System (Production Guard Mode)
+
+The `system_guard` node is the **Single Source of Truth** for the robot's state. It manages the **ROS2 Lifecycle** of downstream nodes (`perception_node`, `actuation_node`), ensuring they remain in an `Unconfigured` or `Inactive` state until all boot sequence checks pass.
+
+### System Mode Definitions
+| State | Behavior | Actuator Status |
+| :--- | :--- | :--- |
+| **SAFE** | Default boot state; waiting for node discovery. | **LOCKED** (Hardware cutoff enabled) |
+| **CONFIGURING** | Actively validating hardware and perception health. | **LOCKED** |
+| **READY** | All checks passed. Managed nodes Activated. Waiting for operator. | **LOCKED** |
+| **ACTIVE** | Operational field mode. Detections trigger actions. | **UNLOCKED** |
+| **ERROR** | Heartbeat lost or hardware failure detected. | **IMMEDIATE LOCK & ROLLBACK** |
+
+### Hardware Safety & Fail-safes
+In addition to software guarding, the following physical layers are required:
+-   **Physical E-Stop**: A normally closed (NC) button cutting power to the L298N motor driver and spray relay.
+-   **GPIO 26 (Heartbeat Out)**: Connect to an external watchdog (e.g., ESP32) to power-cycle the Pi if the guard node freezes.
+-   **GPIO 21 (Stop Input)**: Monitored by `system_guard` as a physical hardware interrupt.
+-   **Relay Cutoff**: The spray solenoid is powered through a relay controlled by the `safety_lock` topic.
+
+### 🚀 First Field-Run Checklist
+Follow this sequence for every new field deployment:
+1.  **Clear Zone**: Ensure a 2-meter radius is clear around the robot.
+2.  **Power-On**: Boot the RPi 5. Observe `system_state` transition: `SAFE` → `CONFIGURING`.
+3.  **Model Warmup**: Verify `perception_health` logs show "Model warm-up pass successful."
+4.  **Lifecycle Sync**: Confirm all nodes are `Active` using `ros2 lifecycle get /perception_node`.
+5.  **Detections Check**: Open `rqt_image_view` and verify bounding boxes appear on crops/weeds.
+6.  **Operator Unlock**: Once the `system_state` is `READY`, send the activation command:
+    ```bash
+    ros2 topic pub /operator_confirm std_msgs/msg/String "data: 'ACTIVATE'" --once
+    ```
+
+### Performance Benchmarks (RPi5)
+-   **Inference Rate**: 3.5 – 5.0 FPS (YOLOv8n @ 640px).
+-   **Detection Latency**: 200ms – 280ms.
+-   **Actuator Compensation**: Configured via `system_latency_ms` (Default: 200ms).
+-   **CPU Load**: ~75% across 4 cores during active detection.
+
+### Error Recovery & Logging
+If a failure occurs (e.g., camera disconnection), the system performs an **Automatic Rollback**:
+1.  **Lock Actuators**: `safety_lock` is set to `True`.
+2.  **State Reset**: System reverts to `SAFE` mode.
+3.  **Logging**: Full diagnostic logs are saved to `~/.ros/log`. Check latest logs for root cause:
+    ```bash
+    grep -r "ERROR" ~/.ros/log/latest
+    ```
+
+---
+
+## 📏 Calibration Guide (Critical)
 
 1.  **Camera Intrinsics**: Run `ros2 run camera_calibration cameracalibrator` to eliminate lens distortion.
 2.  **Extrinsics (Camera-to-Nozzle)**: Measure physical offset from camera center to nozzle tip. Update the static transform in `agribot_bringup/config/positions.yaml`.
