@@ -1,4 +1,5 @@
 import rclpy
+import os
 from rclpy.lifecycle import Node, State, TransitionCallbackReturn
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -27,13 +28,26 @@ class PerceptionNode(Node):
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring Perception Node...')
         
-        model_path = self.get_parameter('model_path').value
+        # 1. Resolve Model Path
+        model_name = self.get_parameter('model_path').value
+        if os.path.isabs(model_name) or os.path.exists(model_name):
+            model_path = model_name
+        else:
+            # Search in package share directory
+            from ament_index_python.packages import get_package_share_directory
+            package_share = get_package_share_directory('agribot_perception')
+            model_path = os.path.join(package_share, 'models', model_name)
+
         self.conf_threshold = self.get_parameter('conf_threshold').value
         self.input_size = (self.get_parameter('input_width').value, 
                            self.get_parameter('input_height').value)
         self.fps_limit = 1.0 / self.get_parameter('max_fps').value
 
         try:
+            # Ensure file exists
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found at {model_path}")
+                
             # Initialize ONNX Runtime session
             self.session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
             self.get_logger().info(f'Loaded ONNX model from {model_path}')

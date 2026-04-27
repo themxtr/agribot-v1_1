@@ -1,0 +1,23 @@
+# ROS2
+install/
+build/
+log/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Machine Learning
+runs/
+*.pt
+*.onnx
+!src/agribot_perception/models/placeholder.txt
+
+# Dataset Caches
+*.cache
+dataset/
+
+# System
+.DS_Store
+.vscode/

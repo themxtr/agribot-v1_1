@@ -88,27 +88,29 @@ pip3 install onnxruntime opencv-python numpy ultralytics
 **Important**: YOLOv8 is **not** trained on the Raspberry Pi 5. To ensure production-grade performance, follow this specific "Train on PC, Deploy on Pi" pipeline.
 
 ### 1. Training (on Development PC / GPU)
-Use a separate machine with a GPU to train your model using the [Ultralytics](https://github.com/ultralytics/ultralytics) library.
-```python
-from ultralytics import YOLO
-
-# Load a nano model for RPi5 compatibility
-model = YOLO('yolov8n.pt') 
-
-# Train on your dataset (e.g., CropAndWeedDataset)
-model.train(data='custom_weeds.yaml', epochs=100, imgsz=640)
+Use a separate machine with a GPU to train your model using the automated training script:
+```bash
+cd tools/pc_training
+pip install ultralytics
+python3 train_yolov8.py --data dataset.yaml --epochs 100
 ```
 
-### 2. Export to ONNX (on PC)
-Export the trained weights (`best.pt`) to the lightweight **ONNX** format.
-```python
-model.export(format='onnx') # Produces 'best.onnx'
+### 2. Export & Local Validation (on PC)
+Verify the ONNX model integrity before transferring:
+```bash
+python3 validate_onnx.py --model agribot_yolov8n.onnx --image test.jpg
 ```
 
-### 3. Deploy to Raspberry Pi 5
-Transfer `best.onnx` to the Pi 5 (e.g., via `scp`).
-1.  **Placement**: Save to `src/agribot_perception/models/agribot_v8.onnx`.
-2.  **Runtime**: The `agribot_perception` node uses **ONNX Runtime (CPU)** to execute the model. No GPU or "Ultralytics installation" is required on the Pi during field execution.
+### 3. Deploy & Verify on Raspberry Pi 5
+1.  **Transfer**: `scp agribot_yolov8n.onnx pi@<ip>:~/agribot_ws/src/agribot_perception/models/`
+2.  **Verify Hardware**: Check camera stream resolution and FPS:
+    ```bash
+    ros2 run agribot_perception verify_camera.py
+    ```
+3.  **Launch Node**: The `agribot_perception` node uses **ONNX Runtime (CPU)** to execute the model. No GPU or "Ultralytics installation" is required on the Pi during field execution.
+    ```bash
+    ros2 launch agribot_bringup perception.launch.py model_path:=models/agribot_yolov8n.onnx
+    ```
 
 ### 4. Performance Expectations
 | Param | Target Performance (RPi5 CPU) |
