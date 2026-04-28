@@ -181,23 +181,25 @@ This prints a table of all detected devices and installed ROS packages.
 
 ---
 
-## 👁️ Computer Vision Deployment (PC-to-Pi Workflow)
+## 👁️ Computer Vision Deployment
 
-**Important**: YOLOv8 is **not** trained on the Raspberry Pi 5. To ensure production-grade performance, follow this specific "Train on PC, Deploy on Pi" pipeline.
+**Important**: The training pipeline is fully configured to use GPU acceleration via CUDA, but dynamically falls back to CPU if no GPU is available, allowing training and deployment on any hardware.
 
-### 1. Training (on Development PC / GPU)
-Use a separate machine with a GPU to train your model using the automated training script:
+### 1. Dataset Preparation & Training
+Use the automated training script to prepare the Crop and Weed dataset and train the YOLOv8 model:
+
 ```bash
-cd tools/pc_training
-pip install ultralytics
-python3 train_yolov8.py --data dataset.yaml --epochs 100
+# Note: If you encounter an 'Illegal instruction (core dumped)' error due to missing AVX on older CPUs:
+pip uninstall -y polars && pip install polars-lts-cpu
+
+# Start training (will automatically export best.pt and best.onnx to the models/ folder upon completion)
+ros2 run agribot_perception train_yolov8
+# OR run via python directly
+python3 src/agribot_perception/scripts/train_yolov8.py
 ```
 
 ### 2. Export & Local Validation (on PC)
-Verify the ONNX model integrity before transferring:
-```bash
-python3 validate_onnx.py --model agribot_yolov8n.onnx --image test.jpg
-```
+Verify the model weights integrity:
 
 ### 3. Deploy & Verify on Raspberry Pi 5
 1.  **Transfer**: `scp agribot_yolov8n.onnx pi@<ip>:~/agribot_ws/src/agribot_perception/models/`
