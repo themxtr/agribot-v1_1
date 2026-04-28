@@ -62,8 +62,20 @@ class DetectionNode(Node):
                 x_center = float((box.xyxy[0][0] + box.xyxy[0][2]) / 2)
                 y_center = float((box.xyxy[0][1] + box.xyxy[0][3]) / 2)
                 
-                detection.x = x_center
-                detection.y = y_center
+                from sensor_msgs.msg import RegionOfInterest
+                from geometry_msgs.msg import Point
+                detection.bbox = RegionOfInterest(
+                    x_offset=int(box.xyxy[0][0]),
+                    y_offset=int(box.xyxy[0][1]),
+                    width=int(box.xyxy[0][2] - box.xyxy[0][0]),
+                    height=int(box.xyxy[0][3] - box.xyxy[0][1]),
+                    do_rectify=False
+                )
+                detection.stem_pose = Point(
+                    x=x_center,
+                    y=y_center,
+                    z=0.0
+                )
                 detection.confidence = float(box.conf[0])
                 
                 detection_array.detections.append(detection)

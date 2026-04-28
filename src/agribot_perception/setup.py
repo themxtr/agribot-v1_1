@@ -18,7 +18,9 @@ setup(
     maintainer_email='user@todo.todo',
     description='Vision processing for Agribot using YOLOv8',
     license='Apache License 2.0',
-    tests_require=['pytest'],
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             'perception_node = agribot_perception.perception_node:main',

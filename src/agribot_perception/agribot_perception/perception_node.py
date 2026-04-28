@@ -23,6 +23,7 @@ class PerceptionNode(Node):
         self.bridge = CvBridge()
         self.session = None
         self.last_inference_time = 0
+        self._is_active = False
         self.health_pub = self.create_publisher(Point, 'perception_health', 10)
         
     def on_configure(self, state: State) -> TransitionCallbackReturn:
@@ -68,14 +69,17 @@ class PerceptionNode(Node):
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Activating Perception Node...')
+        self._is_active = True
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating Perception Node...')
+        self._is_active = False
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
         self.session = None
+        self._is_active = False
         return TransitionCallbackReturn.SUCCESS
 
     def preprocess(self, img):
@@ -89,7 +93,7 @@ class PerceptionNode(Node):
         return np.expand_dims(img_input, axis=0)
 
     def image_callback(self, msg):
-        if self.session is None or self.active_state.id != State.PRIMARY_STATE_ACTIVE:
+        if self.session is None or not self._is_active:
             return
 
         # Simple FPS control

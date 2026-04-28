@@ -36,10 +36,10 @@ class SprayController(Node):
                 # This assumes camera is looking down/forward at a fixed angle
                 # In a real system, you'd transform this to world coordinates using the map
                 
-                self.get_logger().info(f'Weed detected at ({detection.x}, {detection.y})')
+                self.get_logger().info(f'Weed detected at ({detection.stem_pose.x}, {detection.stem_pose.y})')
                 
                 # Check if it's close enough to the front (y threshold)
-                if detection.y > self.spray_threshold_y:
+                if detection.stem_pose.y > self.spray_threshold_y:
                     self.trigger_spray()
 
     def trigger_spray(self):

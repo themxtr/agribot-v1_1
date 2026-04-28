@@ -10,7 +10,17 @@
   <depend>rclpy</depend>
   <depend>agribot_perception</depend>
   <depend>agribot_control</depend>
+  <depend>agribot_actuation</depend>
+  <depend>agribot_detection_manager</depend>
+  <depend>agribot_mapping</depend>
+  <depend>agribot_description</depend>
   <depend>launch_ros</depend>
+  <depend>slam_toolbox</depend>
+  <depend>tf2_ros</depend>
+  <depend>usb_cam</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <export>
     <build_type>ament_python</build_type>

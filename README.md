@@ -1,10 +1,10 @@
 # 🌾 Agribot v1.1: Production-Grade Autonomous Weed Management
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![ROS2](https://img.shields.io/badge/ROS2-Humble-orange.svg)
+![ROS2](https://img.shields.io/badge/ROS2-Jazzy-orange.svg)
 ![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-red.svg)
 
-Agribot is a ROS 2 Humble-based autonomous agricultural robot designed for precision weed management. It is explicitly optimized for real-time execution on the **Raspberry Pi 5**, utilizing a modular architecture, lifecycle-managed nodes, and a predictive latency-compensation pipeline.
+Agribot is a ROS 2 Jazzy-based autonomous agricultural robot designed for precision weed management. It is explicitly optimized for real-time execution on the **Raspberry Pi 5**, utilizing a modular architecture, lifecycle-managed nodes, and a predictive latency-compensation pipeline.
 
 ---
 
@@ -46,20 +46,39 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 ## 💻 Software Requirements
 
 ### Environment
-- **OS**: Ubuntu 22.04 LTS (Jammy Jellyfish)
-- **ROS 2**: Humble Hawksbill
-- **Python**: 3.10+
+- **OS**: Ubuntu 24.04 LTS (Noble Numbat)
+- **ROS 2**: Jazzy Jalisco
+- **Python**: 3.12+
 
-### Dependencies
+### Install ROS 2 Jazzy (if not already installed)
 ```bash
-# System Dependencies
-sudo apt update && sudo apt install -y \
-  ros-humble-usb-cam ros-humble-cv-bridge \
-  ros-humble-tf2-geometry-msgs ros-humble-slam-toolbox \
-  ros-humble-teleop-twist-keyboard ros-humble-xacro
+# Add ROS 2 GPG key and repository
+sudo apt update && sudo apt install -y software-properties-common curl
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+  http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-# Python ML Runtime
-pip3 install onnxruntime opencv-python numpy ultralytics
+# Install ROS 2 Jazzy Desktop (includes RViz2)
+sudo apt update && sudo apt install -y ros-jazzy-desktop
+
+# Source ROS 2 Jazzy (add to ~/.bashrc for persistence)
+source /opt/ros/jazzy/setup.bash
+echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
+```
+
+### System Dependencies
+```bash
+sudo apt update && sudo apt install -y \
+  ros-jazzy-usb-cam ros-jazzy-cv-bridge \
+  ros-jazzy-tf2-geometry-msgs ros-jazzy-slam-toolbox \
+  ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
+  ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
+  ros-jazzy-image-transport ros-jazzy-rviz2
+
+# Python ML Runtime (on RPi5 only onnxruntime is needed at runtime)
+pip3 install onnxruntime opencv-python numpy
 ```
 
 ---
@@ -73,7 +92,10 @@ pip3 install onnxruntime opencv-python numpy ultralytics
     ```
 2.  **Install ROS Dependencies**:
     ```bash
-    rosdep install -i --from-path src --rosdistro humble -y
+    source /opt/ros/jazzy/setup.bash
+    sudo rosdep init  # Only needed once
+    rosdep update
+    rosdep install -i --from-path src --rosdistro jazzy -y
     ```
 3.  **Build**:
     ```bash
@@ -126,10 +148,22 @@ python3 validate_onnx.py --model agribot_yolov8n.onnx --image test.jpg
 ## 🚀 Running the System
 
 ### Full System Launch
-Starts LiDAR, Camera, SLAM, Perception, and Control Bridge.
+Starts LiDAR, Camera, SLAM, Perception, Control Bridge, Safety Guard, and **RViz2 visualization**.
 ```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
 ros2 launch agribot_bringup main_launch.py model_path:=/path/to/model.onnx
 ```
+
+### What to Expect on Launch (RViz2)
+Upon launching, RViz2 will open with the following visualization panels:
+-   **LiDAR Scan** (`/scan`): Real‑time laser scan rendered in red, showing boundary geometry.
+-   **SLAM Map** (`/map`): Occupancy grid built by SLAM Toolbox, updated incrementally.
+-   **Camera Feed** (`/image_raw`): Live USB camera image from the field.
+-   **TF Tree**: Full transform hierarchy (`map → odom → base_link → laser / camera_link`).
+-   **Robot Model**: URDF-based 3D model of the Agribot.
+
+> **Note**: All visualization components are available immediately for operator verification during **SCAN mode**.
 
 ### Perception Verification
 To run only the camera and weed detection node:
@@ -174,8 +208,9 @@ Follow this sequence for every new field deployment:
 2.  **Power-On**: Boot the RPi 5. Observe `system_state` transition: `SAFE` → `CONFIGURING`.
 3.  **Model Warmup**: Verify `perception_health` logs show "Model warm-up pass successful."
 4.  **Lifecycle Sync**: Confirm all nodes are `Active` using `ros2 lifecycle get /perception_node`.
-5.  **Detections Check**: Open `rqt_image_view` and verify bounding boxes appear on crops/weeds.
-6.  **Operator Unlock**: Once the `system_state` is `READY`, send the activation command:
+5.  **RViz2 Check**: Verify in RViz2 that LiDAR scan, map, camera feed, and TF tree are all visible.
+6.  **Detections Check**: Open `rqt_image_view` and verify bounding boxes appear on crops/weeds.
+7.  **Operator Unlock**: Once the `system_state` is `READY`, send the activation command:
     ```bash
     ros2 topic pub /operator_confirm std_msgs/msg/String "data: 'ACTIVATE'" --once
     ```
@@ -222,13 +257,43 @@ If a failure occurs (e.g., camera disconnection), the system performs an **Autom
 
 ## 🔧 Troubleshooting
 
+### General
 -   **Low FPS**: Ensure the Pi 5 is not thermal throttling. Reduce `imgsz` to 320.
 -   **No Detections**: Check if the model input resolution matches the node's `input_width`/`input_height` parameters.
 -   **Misaligned Spray**: Re-validate `system_latency_ms`. Ensure robot speed is consistent during spray approach.
+
+### Jazzy-Specific Issues
+-   **`SetuptoolsDeprecationWarning: tests_require`**: All `setup.py` files in this repo have been updated to use `extras_require`. If you encounter this in third-party packages, patch their `setup.py` similarly.
+-   **`cv_bridge` header not found (C++ packages)**: Jazzy uses `<cv_bridge/cv_bridge.hpp>` instead of `.h`. Check your package's CMakeLists for the correct `CV_BRIDGE_INCLUDE_HPP` define.
+-   **`static_transform_publisher` argument errors**: Jazzy uses flag-based args (`--x`, `--frame-id`, etc.) instead of positional arguments. See the `navigation.launch.py` for the correct format.
+-   **RViz2 not showing displays**: Ensure the fixed frame is set to `map` and that the SLAM toolbox is actively publishing the `/map` topic. Check `ros2 topic list` and `ros2 topic hz /scan` for data flow.
+-   **Lifecycle node state issues**: Jazzy removed the `active_state` property from lifecycle nodes. This repo uses an internal `_is_active` flag — ensure your custom lifecycle nodes do the same.
+
+### Diagnostic Commands
+```bash
+# Check all running nodes
+ros2 node list
+
+# Verify TF tree
+ros2 run tf2_tools view_frames
+
+# Check topic publishing rates
+ros2 topic hz /scan
+ros2 topic hz /image_raw
+ros2 topic hz /map
+
+# Lifecycle node state
+ros2 lifecycle get /perception_node
+
+# View logs
+grep -r "ERROR" ~/.ros/log/latest
+```
 
 ---
 
 ## 📎 References
 - [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/)
 - [ONNX Runtime Python API](https://onnxruntime.ai/docs/api/python/)
-- [ROS2 Humble Documentation](https://docs.ros.org/en/humble/)
+- [ROS2 Jazzy Documentation](https://docs.ros.org/en/jazzy/)
+- [ROS2 Jazzy Release Notes](https://docs.ros.org/en/jazzy/Releases/Release-Jazzy-Jalisco.html)
+- [SLAM Toolbox (ROS 2)](https://github.com/SteveMacenski/slam_toolbox)
