@@ -24,7 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_node = agribot_perception.perception_node:main',
-            'dataset_prep = agribot_perception.scripts.rpi_dataset_prep:main'
+            'dataset_prep = agribot_perception.scripts.rpi_dataset_prep:main',
+            'train_yolov8 = agribot_perception.scripts.train_yolov8:main'
         ],
     },
 )

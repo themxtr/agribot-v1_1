@@ -20,6 +20,9 @@ class DetectionNode(Node):
         self.conf_threshold = self.get_parameter('confidence_threshold').get_parameter_value().double_value
         
         if YOLO:
+            import torch
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            self.get_logger().info(f'CUDA available: {torch.cuda.is_available()}, forcing device: {self.device}')
             self.model = YOLO(model_path)
             self.get_logger().info(f'Loaded YOLOv8 model from {model_path}')
         else:
@@ -41,7 +44,7 @@ class DetectionNode(Node):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         
         # Run inference
-        results = self.model(cv_image, conf=self.conf_threshold)
+        results = self.model(cv_image, conf=self.conf_threshold, device=self.device)
         
         detection_array = DetectionArray()
         

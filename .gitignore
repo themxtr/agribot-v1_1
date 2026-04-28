@@ -21,3 +21,4 @@ dataset/
 # System
 .DS_Store
 .vscode/
+cropweed_dataset/
