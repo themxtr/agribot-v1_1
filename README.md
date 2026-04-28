@@ -6,6 +6,8 @@
 
 Agribot is a ROS 2 Jazzy-based autonomous agricultural robot designed for precision weed management. It is explicitly optimized for real-time execution on the **Raspberry Pi 5**, utilizing a modular architecture, lifecycle-managed nodes, and a predictive latency-compensation pipeline.
 
+**Key design principle**: The system boots successfully with *any* combination of connected hardware. Missing components are automatically detected and skipped — no crashes from absent drivers or packages.
+
 ---
 
 ## 📖 Project Overview
@@ -22,6 +24,7 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 ## ✨ Key Features
 
 -   **RPi5-Optimized Inference**: Replaces heavy GPU stacks with **ONNX Runtime** and **YOLOv8n**.
+-   **Fault-Tolerant Boot**: Auto-detects hardware at launch — missing cameras, LiDARs, or motor controllers are gracefully skipped.
 -   **Lifecycle Nodes**: Managed node states (Configure/Activate/Deactivate) for aggressive CPU/Power management.
 -   **Latency Compensation**: Predicts the robot's future pose to trigger the spray nozzle exactly at the target arrival time.
 -   **RANSAC Row Detection**: Lightweight geometric mapping of crop rows, eliminating the need for full SLAM in structured fields.
@@ -31,15 +34,49 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 
 ## 🏗 System Architecture
 
-| Package | Responsibility |
-| :--- | :--- |
-| `agribot_msgs` | Custom messages, actions, and services (Detection, SprayAction). |
-| `agribot_perception` | ONNX Runtime-based plant detection and dataset preprocessing. |
-| `agribot_detection_manager` | Mode orchestration (SCAN, DETECT, SPRAY) via Lifecycle states. |
-| `agribot_mapping` | Row detection and coordinate frame transformations. |
-| `agribot_actuation` | Action server for predictive spraying and latency modeling. |
-| `agribot_bringup` | Master launch files and global configuration management. |
-| `agribot_description` | URDF robot model and physical parameters. |
+### Package Overview
+
+| Package | Required | Responsibility |
+| :--- | :---: | :--- |
+| `agribot_bringup` | ✅ | Master launch files, hardware detection, and system guard. |
+| `agribot_description` | ✅ | URDF robot model and physical parameters. |
+| `agribot_control` | ✅ | Motor bridge and spray controller. |
+| `agribot_msgs` | ⚙️ | Custom messages, actions, and services (Detection, SprayAction). |
+| `agribot_perception` | ❌ | ONNX Runtime-based plant detection. *Optional — requires camera.* |
+| `agribot_detection_manager` | ❌ | Mode orchestration (SCAN, DETECT, SPRAY) via Lifecycle states. |
+| `agribot_mapping` | ❌ | Row detection and coordinate frame transformations. |
+| `agribot_actuation` | ❌ | Action server for predictive spraying and latency modeling. |
+| `sllidar_ros2` | ❌ | RPLiDAR driver. *Optional — sensor must be connected.* |
+
+> ✅ = always built/needed &nbsp;|&nbsp; ⚙️ = needed if any optional CV/actuation package is used &nbsp;|&nbsp; ❌ = optional, gated by hardware detection
+
+### Hardware Detection Flow
+
+```
+main_launch.py
+  ├── hw_detection.detect_all()      ← scans /dev at launch time
+  │     ├── /dev/video* → has_camera
+  │     ├── /dev/ttyUSB0 → has_lidar
+  │     └── /dev/ttyUSB1 → has_motor
+  │
+  ├── check_ros_package('usb_cam')   ← verify driver is installed
+  ├── check_ros_package('slam_toolbox')
+  │
+  └── IfCondition gates on each subsystem
+        ├── LiDAR node       (if has_lidar)
+        ├── SLAM Toolbox      (if has_lidar AND slam_toolbox installed)
+        ├── Camera + ONNX     (if has_camera AND usb_cam installed)
+        ├── Motor bridge      (if has_motor)
+        └── System Guard      (ALWAYS — receives hw inventory via params)
+```
+
+### Degraded Operation Modes
+
+| Mode | Required HW | Behaviour |
+| :--- | :--- | :--- |
+| **FULL** | Camera + LiDAR + Motor | All features: scan, detect, spray |
+| **SCAN-ONLY** | LiDAR only | LiDAR mapping + SLAM in RViz2, no CV |
+| **DESK/DEV** | None | TF tree + RViz2 + system_guard only (for development) |
 
 ---
 
@@ -68,18 +105,56 @@ source /opt/ros/jazzy/setup.bash
 echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 ```
 
-### System Dependencies
+### Required Dependencies (always install)
 ```bash
 sudo apt update && sudo apt install -y \
-  ros-jazzy-usb-cam ros-jazzy-cv-bridge \
-  ros-jazzy-tf2-geometry-msgs ros-jazzy-slam-toolbox \
-  ros-jazzy-teleop-twist-keyboard ros-jazzy-xacro \
+  ros-jazzy-tf2-geometry-msgs ros-jazzy-xacro \
   ros-jazzy-robot-state-publisher ros-jazzy-joint-state-publisher \
-  ros-jazzy-image-transport ros-jazzy-rviz2
-
-# Python ML Runtime (on RPi5 only onnxruntime is needed at runtime)
-pip3 install onnxruntime opencv-python numpy
+  ros-jazzy-rviz2
 ```
+
+### Optional Dependencies (install based on your hardware)
+```bash
+# Camera / Computer Vision (only if USB camera is connected)
+sudo apt install -y ros-jazzy-usb-cam ros-jazzy-cv-bridge ros-jazzy-image-transport
+pip3 install onnxruntime opencv-python numpy
+
+# SLAM (only if LiDAR is connected)
+sudo apt install -y ros-jazzy-slam-toolbox
+
+# Teleop (manual control)
+sudo apt install -y ros-jazzy-teleop-twist-keyboard
+```
+
+---
+
+## 🔌 Expected Device Paths
+
+The hardware auto-detection scans these locations:
+
+| Device | Expected Path | Fallback | udev Rule Recommended? |
+| :--- | :--- | :--- | :---: |
+| **USB Camera** | `/dev/video0` | Any `/dev/video*` | No |
+| **RPLiDAR** | `/dev/ttyUSB0` | First `/dev/ttyUSB*` or `/dev/ttyACM*` | Yes |
+| **Arduino (Motor)** | `/dev/ttyUSB1` | Second `/dev/ttyUSB*` | Yes |
+
+### Recommended udev Rules
+For deterministic device assignment, create `/etc/udev/rules.d/99-agribot.rules`:
+```
+# RPLiDAR (adjust idVendor/idProduct for your model)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="ttyLIDAR"
+
+# Arduino Nano
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyARDUINO"
+```
+Then reload: `sudo udevadm control --reload-rules && sudo udevadm trigger`
+
+### Pre-Launch Hardware Check
+Run the built-in hardware scanner to verify device detection:
+```bash
+ros2 run agribot_bringup hw_scanner
+```
+This prints a table of all detected devices and installed ROS packages.
 
 ---
 
@@ -95,8 +170,9 @@ pip3 install onnxruntime opencv-python numpy
     source /opt/ros/jazzy/setup.bash
     sudo rosdep init  # Only needed once
     rosdep update
-    rosdep install -i --from-path src --rosdistro jazzy -y
+    rosdep install -i --from-path src --rosdistro jazzy -y --skip-keys="usb_cam slam_toolbox"
     ```
+    > The `--skip-keys` flag prevents build failure if optional packages aren't available in your rosdep database.
 3.  **Build**:
     ```bash
     colcon build --symlink-install
@@ -147,31 +223,49 @@ python3 validate_onnx.py --model agribot_yolov8n.onnx --image test.jpg
 
 ## 🚀 Running the System
 
-### Full System Launch
-Starts LiDAR, Camera, SLAM, Perception, Control Bridge, Safety Guard, and **RViz2 visualization**.
+### Full System Launch (Auto-Detecting Hardware)
+The launch system automatically detects connected hardware and enables/disables subsystems:
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch agribot_bringup main_launch.py model_path:=/path/to/model.onnx
+ros2 launch agribot_bringup main_launch.py
+```
+
+### Manual Override Flags
+Override auto-detection when needed:
+```bash
+# Force-disable camera even if detected
+ros2 launch agribot_bringup main_launch.py enable_camera:=false
+
+# Run headless on Pi (no RViz2)
+ros2 launch agribot_bringup main_launch.py enable_rviz:=false
+
+# Force all subsystems off except TF
+ros2 launch agribot_bringup main_launch.py enable_camera:=false enable_lidar:=false enable_motor:=false
 ```
 
 ### What to Expect on Launch (RViz2)
-Upon launching, RViz2 will open with the following visualization panels:
--   **LiDAR Scan** (`/scan`): Real‑time laser scan rendered in red, showing boundary geometry.
+Upon launching, RViz2 will open with available visualization panels:
+
+**With LiDAR connected:**
+-   **LiDAR Scan** (`/scan`): Real-time laser scan rendered in red, showing boundary geometry.
 -   **SLAM Map** (`/map`): Occupancy grid built by SLAM Toolbox, updated incrementally.
--   **Camera Feed** (`/image_raw`): Live USB camera image from the field.
--   **TF Tree**: Full transform hierarchy (`map → odom → base_link → laser / camera_link`).
+-   **TF Tree**: Transform hierarchy (`map → odom → base_link → laser`).
 -   **Robot Model**: URDF-based 3D model of the Agribot.
 
-> **Note**: All visualization components are available immediately for operator verification during **SCAN mode**.
+**With Camera connected (additional):**
+-   **Camera Feed** (`/image_raw`): Live USB camera image from the field.
+-   **Camera TF**: `base_link → camera_link` transform added to tree.
+
+**With no sensors (desk mode):**
+-   **Robot Model** and **TF tree** only — useful for URDF development.
 
 ### Perception Verification
 To run only the camera and weed detection node:
 ```bash
 ros2 launch agribot_bringup perception.launch.py model_path:=/path/to/model.onnx
 ```
-- **Verify Topics**: `ros2 topic echo /detections`
-- **Visualize**: `ros2 run rqt_image_view rqt_image_view`
+- If no camera is detected, this prints a diagnostic and exits cleanly (no crash).
 
 ### Mode Switching
 Switch between operational modes via String messages:
@@ -184,16 +278,34 @@ ros2 topic pub /set_mode std_msgs/msg/String "data: 'DETECT'" --once
 
 ## 🛡️ Autonomous Startup Safety System (Production Guard Mode)
 
-The `system_guard` node is the **Single Source of Truth** for the robot's state. It manages the **ROS2 Lifecycle** of downstream nodes (`perception_node`, `actuation_node`), ensuring they remain in an `Unconfigured` or `Inactive` state until all boot sequence checks pass.
+The `system_guard` node is the **Single Source of Truth** for the robot's state. It dynamically adapts its boot verification sequence based on detected hardware.
+
+### Dynamic Boot Sequence
+The guard builds its verification steps from the hardware inventory:
+
+| Step | Condition | Purpose |
+| :--- | :--- | :--- |
+| `LIDAR_HEALTH` | LiDAR detected | Verify `/scan` topic is publishing |
+| `CAMERA_HEALTH` | Camera detected | Verify `/image_raw` topic is publishing |
+| `MODEL_WARMUP` | Camera detected | Verify perception ONNX model loaded |
+| `LIFECYCLE_ACTIVATE` | Camera detected | Activate perception lifecycle node |
+| `TF_HEALTH` | Always | Verify TF tree is connected |
+
+> **If no camera is present**, steps 2–4 are skipped entirely and the system proceeds to READY in SCAN-ONLY mode.
 
 ### System Mode Definitions
 | State | Behavior | Actuator Status |
 | :--- | :--- | :--- |
-| **SAFE** | Default boot state; waiting for node discovery. | **LOCKED** (Hardware cutoff enabled) |
-| **CONFIGURING** | Actively validating hardware and perception health. | **LOCKED** |
-| **READY** | All checks passed. Managed nodes Activated. Waiting for operator. | **LOCKED** |
-| **ACTIVE** | Operational field mode. Detections trigger actions. | **UNLOCKED** |
-| **ERROR** | Heartbeat lost or hardware failure detected. | **IMMEDIATE LOCK & ROLLBACK** |
+| **SAFE** | Default boot state; waiting for startup sequence. | **LOCKED** |
+| **CONFIGURING** | Running dynamic verification steps. | **LOCKED** |
+| **READY** | All applicable checks passed. Waiting for operator. | **LOCKED** |
+| **ACTIVE** | Operational field mode. | **UNLOCKED** |
+| **ERROR** | Critical heartbeat lost. Auto-recovers to SAFE. | **IMMEDIATE LOCK** |
+
+### Watchdog Behaviour
+-   **LiDAR loss** (if detected at boot): → **ERROR** state (critical for safety)
+-   **Camera loss** (if detected at boot): → **WARN** only (LiDAR + motor keep running)
+-   **Missing hardware at boot**: silently skipped — not monitored at all
 
 ### Hardware Safety & Fail-safes
 In addition to software guarding, the following physical layers are required:
@@ -204,13 +316,12 @@ In addition to software guarding, the following physical layers are required:
 
 ### 🚀 First Field-Run Checklist
 Follow this sequence for every new field deployment:
-1.  **Clear Zone**: Ensure a 2-meter radius is clear around the robot.
-2.  **Power-On**: Boot the RPi 5. Observe `system_state` transition: `SAFE` → `CONFIGURING`.
-3.  **Model Warmup**: Verify `perception_health` logs show "Model warm-up pass successful."
-4.  **Lifecycle Sync**: Confirm all nodes are `Active` using `ros2 lifecycle get /perception_node`.
-5.  **RViz2 Check**: Verify in RViz2 that LiDAR scan, map, camera feed, and TF tree are all visible.
-6.  **Detections Check**: Open `rqt_image_view` and verify bounding boxes appear on crops/weeds.
-7.  **Operator Unlock**: Once the `system_state` is `READY`, send the activation command:
+1.  **Hardware Check**: Run `ros2 run agribot_bringup hw_scanner` to verify all devices are detected.
+2.  **Clear Zone**: Ensure a 2-meter radius is clear around the robot.
+3.  **Power-On**: Boot the RPi 5. Observe `system_state` transition: `SAFE` → `CONFIGURING`.
+4.  **Watch Boot Log**: Check console for `✅ VERIFIED: <step>` messages for each detected subsystem.
+5.  **RViz2 Check**: Verify LiDAR scan and map are visible (camera feed only if camera connected).
+6.  **Operator Unlock**: Once the `system_state` is `READY`, send the activation command:
     ```bash
     ros2 topic pub /operator_confirm std_msgs/msg/String "data: 'ACTIVATE'" --once
     ```
@@ -222,10 +333,10 @@ Follow this sequence for every new field deployment:
 -   **CPU Load**: ~75% across 4 cores during active detection.
 
 ### Error Recovery & Logging
-If a failure occurs (e.g., camera disconnection), the system performs an **Automatic Rollback**:
+If a failure occurs, the system performs an **Automatic Rollback**:
 1.  **Lock Actuators**: `safety_lock` is set to `True`.
-2.  **State Reset**: System reverts to `SAFE` mode.
-3.  **Logging**: Full diagnostic logs are saved to `~/.ros/log`. Check latest logs for root cause:
+2.  **State Reset**: System auto-recovers to `SAFE` mode and re-runs boot verification.
+3.  **Logging**: Full diagnostic logs are saved to `~/.ros/log`:
     ```bash
     grep -r "ERROR" ~/.ros/log/latest
     ```
@@ -257,20 +368,32 @@ If a failure occurs (e.g., camera disconnection), the system performs an **Autom
 
 ## 🔧 Troubleshooting
 
+### Hardware Detection Issues
+-   **`hw_scanner` shows no devices**: Check USB connections. Run `ls /dev/ttyUSB* /dev/video*` manually.
+-   **LiDAR on wrong port**: If LiDAR and Arduino share the same USB hub, they may swap /dev/ttyUSB assignments across reboots. Use udev rules (see "Expected Device Paths" above).
+-   **Camera detected but perception doesn't launch**: Ensure `ros-jazzy-usb-cam` is installed: `apt list --installed | grep usb-cam`.
+
+### Missing Driver / Package Issues
+-   **`usb_cam` not installed**: The system will print `[BOOT] Camera/CV pipeline DISABLED` and continue in SCAN-ONLY mode. Install with: `sudo apt install ros-jazzy-usb-cam`.
+-   **`slam_toolbox` not installed**: SLAM is disabled; LiDAR will still publish `/scan` but no `/map` will be generated. Install with: `sudo apt install ros-jazzy-slam-toolbox`.
+-   **System boots with no sensors**: This is a valid "desk mode" — only TF tree + RViz2 + system_guard run.
+
 ### General
 -   **Low FPS**: Ensure the Pi 5 is not thermal throttling. Reduce `imgsz` to 320.
 -   **No Detections**: Check if the model input resolution matches the node's `input_width`/`input_height` parameters.
 -   **Misaligned Spray**: Re-validate `system_latency_ms`. Ensure robot speed is consistent during spray approach.
 
 ### Jazzy-Specific Issues
--   **`SetuptoolsDeprecationWarning: tests_require`**: All `setup.py` files in this repo have been updated to use `extras_require`. If you encounter this in third-party packages, patch their `setup.py` similarly.
--   **`cv_bridge` header not found (C++ packages)**: Jazzy uses `<cv_bridge/cv_bridge.hpp>` instead of `.h`. Check your package's CMakeLists for the correct `CV_BRIDGE_INCLUDE_HPP` define.
--   **`static_transform_publisher` argument errors**: Jazzy uses flag-based args (`--x`, `--frame-id`, etc.) instead of positional arguments. See the `navigation.launch.py` for the correct format.
--   **RViz2 not showing displays**: Ensure the fixed frame is set to `map` and that the SLAM toolbox is actively publishing the `/map` topic. Check `ros2 topic list` and `ros2 topic hz /scan` for data flow.
--   **Lifecycle node state issues**: Jazzy removed the `active_state` property from lifecycle nodes. This repo uses an internal `_is_active` flag — ensure your custom lifecycle nodes do the same.
+-   **`SetuptoolsDeprecationWarning: tests_require`**: All `setup.py` files in this repo use `extras_require`.
+-   **`cv_bridge` header not found (C++ packages)**: Jazzy uses `<cv_bridge/cv_bridge.hpp>` instead of `.h`.
+-   **`static_transform_publisher` argument errors**: Jazzy uses flag-based args (`--x`, `--frame-id`, etc.) instead of positional arguments.
+-   **Lifecycle node state issues**: Jazzy removed the `active_state` property. This repo uses an internal `_is_active` flag.
 
 ### Diagnostic Commands
 ```bash
+# Hardware scan
+ros2 run agribot_bringup hw_scanner
+
 # Check all running nodes
 ros2 node list
 
@@ -281,6 +404,10 @@ ros2 run tf2_tools view_frames
 ros2 topic hz /scan
 ros2 topic hz /image_raw
 ros2 topic hz /map
+
+# System state
+ros2 topic echo /system_state
+ros2 topic echo /hw_capabilities
 
 # Lifecycle node state
 ros2 lifecycle get /perception_node
