@@ -30,6 +30,13 @@ data_downloads/
 *.bmp
 *.tiff
 
+# Allow tracked results and documentation images
+!results/
+!results/**/*.jpg
+!results/**/*.jpeg
+!results/**/*.png
+!results/**/*.gif
+
 # System
 .DS_Store
 .vscode/
