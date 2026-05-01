@@ -9,9 +9,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Machine Learning
-runs/
-*.pt
-*.onnx
+!runs/
 !src/agribot_perception/models/placeholder.txt
 
 # Dataset Caches
@@ -23,6 +21,7 @@ datasets/
 cropweed_dataset/
 cropweed_yolo_dataset/
 data_downloads/
+# runs/
 *.jpg
 *.jpeg
 *.png
@@ -40,3 +39,4 @@ data_downloads/
 # System
 .DS_Store
 .vscode/
+yolov8n.pt

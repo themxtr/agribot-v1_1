@@ -1,0 +1,51 @@
+# Agribot YOLOv8 Configuration
+# Includes: BiFPN, SimAM+EMA, P2 Head
+
+# Parameters
+nc: 2  # number of classes (crop, weed)
+scales: # n, s, m, l, x
+  n: [0.33, 0.25, 1024] 
+
+# Backbone
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+  - [-1, 3, C2f, [128, True]]  # 2 - Add SimAM+EMA in code or via module name
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 6, C2f, [256, True]]  # 4
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 6, C2f, [512, True]]  # 6
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  - [-1, 3, C2f, [1024, True]] # 8
+  - [-1, 1, SPPF, [1024, 5]]   # 9
+
+# Neck (BiFPN)
+neck:
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 6], 1, BiFPN_Concat, [512]] # 11 (P4)
+  - [-1, 3, C2f, [512]] # 12
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 4], 1, BiFPN_Concat, [256]] # 14 (P3)
+  - [-1, 3, C2f, [256]] # 15
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 2], 1, BiFPN_Concat, [128]] # 17 (P2)
+  - [-1, 3, C2f, [128]] # 18 (P2 output)
+
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 15, 4], 1, BiFPN_Concat, [256]] # 20 (P3 output)
+  - [-1, 3, C2f, [256]] # 21
+
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 12, 6], 1, BiFPN_Concat, [512]] # 23 (P4 output)
+  - [-1, 3, C2f, [512]] # 24
+
+  - [-1, 1, Conv, [1024, 3, 2]]
+  - [[-1, 9, 8], 1, BiFPN_Concat, [1024]] # 26 (P5 output)
+  - [-1, 3, C2f, [1024]] # 27
+
+# Head (P2, P3, P4, P5)
+head:
+  - [[18, 21, 24, 27], 1, Detect, [nc]] # Detect(P2, P3, P4, P5)

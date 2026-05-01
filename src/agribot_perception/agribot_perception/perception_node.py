@@ -22,12 +22,12 @@ class PerceptionNode(Node):
     def __init__(self) -> None:
         super().__init__("perception_node")
 
-        self.declare_parameter("model_path", "yolov8n.pt")
-        self.declare_parameter("device", "auto")
-        self.declare_parameter("conf_threshold", 0.25)
+        self.declare_parameter("model_path", "src/agribot_perception/models/best.onnx")
+        self.declare_parameter("device", "cpu")
+        self.declare_parameter("conf_threshold", 0.30)
         self.declare_parameter("slice_size", 640)
         self.declare_parameter("overlap_ratio", 0.2)
-        self.declare_parameter("nms_iou_threshold", 0.75)
+        self.declare_parameter("nms_iou_threshold", 0.45)
         self.declare_parameter("max_fps", 5.0)
         self.declare_parameter("image_topic", "image_raw")
         self.declare_parameter("annotated_topic", "image_annotated")
