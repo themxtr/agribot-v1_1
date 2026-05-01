@@ -268,6 +268,15 @@ Model validation is performed using **bootstrapped non-parametric confidence int
 **Bootstrapped mAP@0.5 Stability** (n=1000 resamples, violin plot with quartiles):
 ![Bootstrap mAP50 Violin](results/bootstrap_map50_violin.png)
 
+### Field-Scale Annotated Predictions
+The following examples show the production detection pipeline correctly boxing `crop` and `weed` targets with real field imagery from `runs/random_weed_checks/annotated_predictions`.
+
+| Example | Source | Notes |
+| :--- | :--- | :--- |
+| ![Crop/Weed Prediction 1](runs/random_weed_checks/annotated_predictions/cropweed-yolo-dataset_0000045.jpg) | `cropweed-yolo-dataset_0000045.jpg` | Balanced crop/weed separation in row planting |
+| ![Crop/Weed Prediction 2](runs/random_weed_checks/annotated_predictions/rice-weed-dataset_0000351.jpg) | `rice-weed-dataset_0000351.jpg` | Dense rice paddy detection with high overlap |
+| ![Crop/Weed Prediction 3](runs/random_weed_checks/annotated_predictions/weed-detection_0000529.jpg) | `weed-detection_0000529.jpg` | High-confidence weed detection in mixed canopy |
+
 ### Deployment on Raspberry Pi 5
 
 1.  **Export & Transfer**:
