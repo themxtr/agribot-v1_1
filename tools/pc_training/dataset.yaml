@@ -1,0 +1,15 @@
+# Agribot v1.1 Dataset Configuration
+# Train on Workstation, Deploy on Pi 5
+
+train: ../datasets/agribot_v1/train/images
+val: ../datasets/agribot_v1/val/images
+test: ../datasets/agribot_v1/test/images
+
+# Classes
+nc: 2
+names:
+  0: crop
+  1: weed
+
+# Note: For production, use absolute paths or relative paths 
+# from the directory where train_yolov8.py is executed.
