@@ -1,0 +1,35 @@
+# ROS2
+install/
+build/
+log/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Machine Learning
+runs/
+*.pt
+*.onnx
+!src/agribot_perception/models/placeholder.txt
+
+# Dataset Caches
+*.cache
+dataset/
+
+# Datasets & Photos
+datasets/
+cropweed_dataset/
+cropweed_yolo_dataset/
+data_downloads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+
+# System
+.DS_Store
+.vscode/
