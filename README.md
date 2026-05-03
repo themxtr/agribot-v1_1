@@ -246,14 +246,14 @@ Model validation is performed using **bootstrapped non-parametric confidence int
 
 | Metric | Value | Notes |
 | :--- | ---: | :--- |
-| **Precision** | 0.5220 | True positives / (TP + FP) |
-| **Recall** | 0.3669 | True positives / (TP + FN) |
-| **mAP@0.5** | 0.4360 | Average precision at IoU=0.50 |
-| **mAP@0.5:0.95** | 0.3540 | Average precision (IoU=0.5:0.95, 10 thresholds) |
-| **Parameters** | 3,182,904 | Total trainable model weights |
-| **Preprocess Latency** | 3.07 ms/img | Resize, normalize, augmentation |
-| **Inference Latency** | 215.56 ms/img | ONNX forward pass (CPU) |
-| **Postprocess Latency** | 3.12 ms/img | NMS, confidence filtering |
+| **Precision** | 0.6396 | True positives / (TP + FP) |
+| **Recall** | 0.5251 | True positives / (TP + FN) |
+| **mAP@0.5** | 0.6048 | Average precision at IoU=0.50 |
+| **mAP@0.5:0.95** | 0.4818 | Average precision (IoU=0.5:0.95, 10 thresholds) |
+| **Parameters** | 3,246,132 | Total trainable model weights |
+| **Preprocess Latency** | 6.34 ms/img | Resize, normalize, augmentation |
+| **Inference Latency** | 1377.49 ms/img | ONNX forward pass (CPU/RPi5 emulation) |
+| **Postprocess Latency** | 62.66 ms/img | NMS, confidence filtering |
 
 #### Result Visualizations
 
