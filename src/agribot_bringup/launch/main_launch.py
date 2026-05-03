@@ -260,6 +260,36 @@ def generate_launch_description():
     ))
 
     # ═══════════════════════════════════════════════════════════════════════
+    # ALWAYS-ON: Telemetry & Remote Access
+    # ═══════════════════════════════════════════════════════════════════════
+    # 1. ROS Bridge (Websocket for Browser Dashboard)
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('rosbridge_server'), 
+                         'launch', 'rosbridge_websocket_launch.xml')
+        ),
+        launch_arguments={'port': '9090', 'unregister_timeout': '60.0'}.items()
+    ))
+
+    # 2. Web Video Server (MJPEG Streams for Browser)
+    ld.add_action(Node(
+        package='web_video_server',
+        executable='web_video_server',
+        name='web_video_server',
+        parameters=[{'port': 8080}],
+        output='screen'
+    ))
+
+    # 3. Foxglove Bridge (Advanced Diagnostics)
+    ld.add_action(Node(
+        package='foxglove_bridge',
+        executable='foxglove_bridge_node',
+        name='foxglove_bridge',
+        parameters=[{'port': 8765}],
+        output='screen'
+    ))
+
+    # ═══════════════════════════════════════════════════════════════════════
     # ALWAYS-ON: System Guard + RViz2
     # ═══════════════════════════════════════════════════════════════════════
     ld.add_action(Node(

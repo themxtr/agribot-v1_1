@@ -1,0 +1,8 @@
+# Agribot Telemetry Requirements
+# Install with: pip install -r requirements_telemetry.txt
+
+# For dashboard interaction and custom scripting if needed
+numpy
+opencv-python
+# Web server (already in python stdlib, but listed for clarity)
+# http.server

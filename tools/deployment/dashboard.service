@@ -1,0 +1,15 @@
+[Unit]
+Description=Agribot Control Dashboard Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/agribot_ws/dashboard
+ExecStart=/usr/bin/python3 -m http.server 8000
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

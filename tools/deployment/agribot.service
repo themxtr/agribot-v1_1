@@ -1,0 +1,21 @@
+[Unit]
+Description=Agribot v1.1 Main Software Stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/agribot_ws
+Environment="RMW_IMPLEMENTATION=rmw_fastrtps_cpp"
+Environment="ROS_DOMAIN_ID=42"
+# Headless launch: disable RViz to save resources and prevent crashes without display
+ExecStart=/bin/bash -c "source /opt/ros/jazzy/setup.bash && source /home/pi/agribot_ws/install/setup.bash && ros2 launch agribot_bringup main_launch.py enable_rviz:=false"
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

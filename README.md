@@ -19,6 +19,15 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 2.  **DETECT**: High-frequency plant classification (3–5 FPS) using **SAHI sliced inference** to classify plants as `crop` or `weed`.
 3.  **SPRAY**: Targeted actuation with predictive pose compensation to hit weed stems at variable speeds.
 
+### 📱 Remote Control & Telemetry
+Agribot v1.1 features a premium, browser-based command center for real-time monitoring and control:
+- **Web Dashboard**: Access via `http://agribot.local:8000` for live video, system state, and mode switching.
+- **Annotated Video**: Real-time MJPEG stream with YOLOv8 bounding boxes.
+- **ROS Bridge**: WebSocket-based telemetry for hardware diagnostics and fault monitoring.
+- **Foxglove Support**: Native integration for advanced 3D visualization and calibration on port 8765.
+
+---
+
 ---
 
 ## ✨ Key Features
@@ -183,6 +192,12 @@ This prints a table of all detected devices and installed ROS packages.
     ```bash
     colcon build --symlink-install
     source install/setup.bash
+    ```
+4.  **Install Telemetry Stack (Optional)**:
+    ```bash
+    # Set up rosbridge, web_video_server, and dashboard services
+    chmod +x tools/deployment/install_telemetry.sh
+    ./tools/deployment/install_telemetry.sh
     ```
 
 ---

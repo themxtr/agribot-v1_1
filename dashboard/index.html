@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agribot v1.1 | Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar / Navigation -->
+        <aside class="sidebar">
+            <div class="logo-section">
+                <div class="logo-icon">🌾</div>
+                <div class="logo-text">
+                    <h1>AGRIBOT</h1>
+                    <span>v1.1 PRO</span>
+                </div>
+            </div>
+            
+            <nav class="main-nav">
+                <div class="nav-item active" data-view="dashboard">
+                    <span class="icon">📊</span>
+                    <span class="label">Dashboard</span>
+                </div>
+                <div class="nav-item" data-view="telemetry">
+                    <span class="icon">📈</span>
+                    <span class="label">Telemetry</span>
+                </div>
+                <div class="nav-item" data-view="settings">
+                    <span class="icon">⚙️</span>
+                    <span class="label">System</span>
+                </div>
+            </nav>
+
+            <div class="system-health">
+                <h3>HARDWARE</h3>
+                <div class="health-item" id="hw-camera">
+                    <span class="status-dot"></span>
+                    <span class="label">Vision System</span>
+                </div>
+                <div class="health-item" id="hw-lidar">
+                    <span class="status-dot"></span>
+                    <span class="label">LiDAR Scanner</span>
+                </div>
+                <div class="health-item" id="hw-motor">
+                    <span class="status-dot"></span>
+                    <span class="label">Motor Bridge</span>
+                </div>
+            </div>
+
+            <div class="connection-status" id="ros-status">
+                <span class="status-indicator"></span>
+                <span class="status-text">DISCONNECTED</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="top-bar">
+                <div class="state-badge-container">
+                    <span class="label">CURRENT STATE:</span>
+                    <div id="system-state" class="state-badge state-safe">SAFE</div>
+                </div>
+                <div class="telemetry-summary">
+                    <div class="metric">
+                        <span class="label">FPS</span>
+                        <span id="stat-fps" class="value">0.0</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">LATENCY</span>
+                        <span id="stat-latency" class="value">0ms</span>
+                    </div>
+                </div>
+            </header>
+
+            <section class="dashboard-grid">
+                <!-- Video Feed -->
+                <div class="panel video-panel">
+                    <div class="panel-header">
+                        <h2>LIVE VISION FEED</h2>
+                        <div class="feed-selector">
+                            <button class="active" data-topic="/detections_annotated">ANNOTATED</button>
+                            <button data-topic="/image_raw">RAW</button>
+                        </div>
+                    </div>
+                    <div class="video-container">
+                        <img id="video-feed" src="placeholder.png" alt="Video Stream">
+                        <div class="overlay-info">
+                            <span id="stream-topic">/detections_annotated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="panel control-panel">
+                    <div class="panel-header">
+                        <h2>MODE SELECTION</h2>
+                    </div>
+                    <div class="mode-buttons">
+                        <button id="btn-activate" class="btn-primary" disabled>
+                            <span class="icon">⚡</span>
+                            <span class="label">ACTIVATE SYSTEM</span>
+                        </button>
+                        
+                        <div class="mode-row">
+                            <button id="btn-scan" class="btn-mode" disabled>
+                                <span class="icon">🛰️</span>
+                                <span class="label">SCAN FIELD</span>
+                            </button>
+                            <button id="btn-detect" class="btn-mode" disabled>
+                                <span class="icon">👁️</span>
+                                <span class="label">DETECT PLANTS</span>
+                            </button>
+                        </div>
+
+                        <button id="btn-spray" class="btn-danger" disabled>
+                            <span class="icon">🚿</span>
+                            <span class="label">ENGAGE SPRAYING</span>
+                        </button>
+                        
+                        <button id="btn-emergency" class="btn-emergency">
+                            <span class="icon">🛑</span>
+                            <span class="label">EMERGENCY STOP</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- System Logs -->
+                <div class="panel logs-panel">
+                    <div class="panel-header">
+                        <h2>SYSTEM EVENTS</h2>
+                    </div>
+                    <div class="log-container" id="log-window">
+                        <div class="log-entry system">Dashboard initialized. Connecting to agribot.local...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-confirm" class="modal">
+        <div class="modal-content">
+            <h3>⚠️ SAFETY CONFIRMATION</h3>
+            <p id="confirm-msg">Are you sure you want to engage SPRAY mode? This will unlock the nozzle solenoid for autonomous actuation.</p>
+            <div class="modal-actions">
+                <button id="modal-cancel">CANCEL</button>
+                <button id="modal-confirm-btn" class="danger">CONFIRM ACTION</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
