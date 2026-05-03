@@ -21,7 +21,7 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 
 ### 📱 Remote Control & Telemetry
 Agribot v1.1 features a premium, browser-based command center for real-time monitoring and control:
-- **Web Dashboard**: Access via `http://agribot.local:8000` for live video, system state, and mode switching.
+- **Web Dashboard**: Access via `http://agribot.local:8080` for live video, system state, and mode switching.
 - **Annotated Video**: Real-time MJPEG stream with YOLOv8 bounding boxes.
 - **ROS Bridge**: WebSocket-based telemetry for hardware diagnostics and fault monitoring.
 - **Foxglove Support**: Native integration for advanced 3D visualization and calibration on port 8765.
@@ -58,6 +58,8 @@ Agribot v1.1 features a premium, browser-based command center for real-time moni
 | `agribot_detection_manager` | ❌ | Mode orchestration (SCAN, DETECT, SPRAY) via Lifecycle states. |
 | `agribot_mapping` | ❌ | Row detection and coordinate frame transformations. |
 | `agribot_actuation` | ❌ | Action server for predictive spraying and latency modeling. |
+| `simulation/` | 🧪 | Mock hardware core and verification scripts for off-robot testing. |
+| `tools/deployment/`| 📦 | Nginx configs, systemd units, and production install scripts. |
 | `sllidar_ros2` | ❌ | RPLiDAR driver. *Optional — sensor must be connected.* |
 
 > ✅ = always built/needed &nbsp;|&nbsp; ⚙️ = needed if any optional CV/actuation package is used &nbsp;|&nbsp; ❌ = optional, gated by hardware detection

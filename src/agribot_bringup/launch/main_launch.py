@@ -93,6 +93,9 @@ def generate_launch_description():
     ld.add_action(DeclareLaunchArgument('enable_slam',
                   default_value=enable_slam_str,
                   description='Override: set false to disable SLAM'))
+    ld.add_action(DeclareLaunchArgument('enable_telemetry',
+                  default_value='true',
+                  description='Set false to disable the web dashboard and telemetry stack'))
     ld.add_action(DeclareLaunchArgument('enable_rviz',
                   default_value='true',
                   description='Set false to run headless (e.g., on Pi without display)'))
@@ -125,6 +128,16 @@ def generate_launch_description():
         arguments=['--x', '0.1', '--y', '0', '--z', '0.2',
                    '--yaw', '0', '--pitch', '0', '--roll', '0',
                    '--frame-id', 'base_link', '--child-frame-id', 'laser']
+    ))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # CONDITIONAL: Telemetry Stack
+    # ═══════════════════════════════════════════════════════════════════════
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(bringup_dir, 'launch', 'telemetry.launch.py')
+        ),
+        condition=IfCondition(LaunchConfiguration('enable_telemetry'))
     ))
 
     # ═══════════════════════════════════════════════════════════════════════
