@@ -22,7 +22,7 @@ class PerceptionNode(Node):
     def __init__(self) -> None:
         super().__init__("perception_node")
 
-        self.declare_parameter("model_path", "src/agribot_perception/models/best.onnx")
+        self.declare_parameter("model_path", "runs/agribot_v1_overhaul-4/weights/best.pt")
         self.declare_parameter("device", "cpu")
         self.declare_parameter("conf_threshold", 0.30)
         self.declare_parameter("slice_size", 640)
@@ -44,12 +44,33 @@ class PerceptionNode(Node):
 
     def _resolve_model_path(self) -> str:
         model_path = str(self.get_parameter("model_path").value)
-        if os.path.exists(model_path):
+        if os.path.isabs(model_path) and os.path.exists(model_path):
             return model_path
-        # Support relative path from current working directory.
-        maybe = os.path.abspath(model_path)
-        if os.path.exists(maybe):
-            return maybe
+        
+        # 1. Check relative to current working directory
+        if os.path.exists(model_path):
+            return os.path.abspath(model_path)
+            
+        # 2. Check relative to the package directory
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            pkg_dir = get_package_share_directory('agribot_perception')
+            pkg_model_path = os.path.join(pkg_dir, model_path)
+            if os.path.exists(pkg_model_path):
+                return pkg_model_path
+        except Exception:
+            pass
+            
+        # 3. Check runs directory in the workspace root
+        runs_path = os.path.join(model_path) # If user provided 'runs/...'
+        if os.path.exists(runs_path):
+            return os.path.abspath(runs_path)
+
+        # 4. Last resort: check src directory directly (dev mode)
+        src_path = os.path.join('src', 'agribot_perception', model_path)
+        if os.path.exists(src_path):
+            return os.path.abspath(src_path)
+
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
     def _resolve_device(self) -> str:

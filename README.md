@@ -24,8 +24,9 @@ Agribot-v1.1 provides an end-to-end autonomous weeding solution. Unlike high-res
 ## ✨ Key Features
 
 -   **RPi5-Optimized Inference**: Replaces heavy GPU stacks with **ONNX Runtime** and **YOLOv8n** with P2-head architecture for tiny seedling detection.
--   **Advanced Detection Architecture**: P2-P5 multi-scale heads, SimAM attention modules, EMA training stabilization, and custom IoU regression (InnerMPDIoU).
--   **SAHI Sliced Inference**: Overlapped image slicing (640×640, 0.2 overlap, 0.75 NMS IoU) for robust small-object detection at field scale.
+-   **Advanced Detection Architecture**: BiFPN weighted neck (replacing PANet), P2-P5 multi-scale heads, SimAM attention modules, EMA training stabilization, and MPDIoU regression loss.
+-   **Dual-Label Suppression**: Custom Cross-Class NMS (IoU=0.45) to eliminate overlapping crop/weed bounding boxes, ensuring precise spray actuation.
+-   **SAHI Sliced Inference**: Overlapped image slicing (640×640, 0.2 overlap, 0.45 cross-class NMS) for robust small-object detection at field scale.
 -   **Fault-Tolerant Boot**: Auto-detects hardware at launch — missing cameras, LiDARs, or motor controllers are gracefully skipped.
 -   **Lifecycle Nodes**: Managed node states (Configure/Activate/Deactivate) for aggressive CPU/Power management.
 -   **Latency Compensation**: Predicts the robot's future pose to trigger the spray nozzle exactly at the target arrival time.
@@ -192,11 +193,12 @@ This prints a table of all detected devices and installed ROS packages.
 
 The perception system is built on **YOLOv8n (Nano)** with architectural enhancements specifically targeting small weed and seedling detection on resource-constrained hardware:
 
-- **P2 Pyramid Head**: Adds an extra detection head at 1/4 feature scale (vs. standard P3-P5), crucial for seedlings < 50px.
-- **SimAM Attention**: Parameter-free spatial attention modules in C2F blocks, improving feature discrimination without overhead.
-- **EMA Training**: Exponential Moving Average weight tracking during training improves model stability and final convergence.
-- **InnerMPDIoU Loss**: Custom IoU regression option for better bounding-box precision on small objects.
-- **SAHI Inference**: Overlapped image slicing (640×640, 0.2 overlap) with NMS merge (0.75 IoU) for robust multi-scale detection.
+- **P2 Pyramid Head**: Adds an extra detection head at 1/4 feature scale (320x320 for 1280 input), crucial for tiny seedlings.
+- **SimAM + EMA Attention**: Parameter-free 3D attention + Efficient Multi-Scale Attention injected into every C2f block.
+- **BiFPN Neck**: Weighted bidirectional feature pyramid network for superior multi-scale fusion compared to unidirectional PANet.
+- **MPDIoU Loss**: High-precision IoU regression for dense overlapping plant scenarios.
+- **Cross-Class NMS**: Suppresses lower-confidence detections of different classes when overlap exceeds 45%, resolving the dual-label overlay failure mode.
+- **SAHI Inference**: Overlapped image slicing (640×640, 0.2 overlap) with cross-class NMS merge.
 
 ### Model Training
 
@@ -219,15 +221,11 @@ The system unifies three production-quality Kaggle datasets with automatic class
 
 #### Training Command
 ```bash
-# Automatic dataset preparation (will download from Kaggle if not cached locally)
-# Note: If you encounter an 'Illegal instruction (core dumped)' error due to missing AVX on older CPUs:
-pip uninstall -y polars && pip install polars-lts-cpu
+# Prepare dataset from 5 sources (Kaggle + GitHub) with IoU audit
+python src/agribot_perception/scripts/ingest_datasets.py
 
-# Start training (will automatically export best.pt and best.onnx upon completion)
-python -m tools.pc_training.precision_agri_pipeline.run_pipeline \
-  --skip-ingest --skip-sahi --skip-eval \
-  --data datasets/unified_rice_weed_yolo/data.yaml \
-  --device cpu --epochs 50 --imgsz 512 --batch 1 --workers 0 --cpu-safe
+# Start 100-epoch CPU-optimized training with BiFPN architecture
+python src/agribot_perception/scripts/train_yolov8.py
 ```
 
 #### Custom Training Configuration (Advanced)
@@ -295,7 +293,7 @@ The following examples show the production detection pipeline correctly boxing `
     ```bash
     # The agribot_perception node uses ONNX Runtime (CPU) to execute the model.
     # No GPU or Ultralytics installation is required on the Pi during field execution.
-    ros2 launch agribot_bringup perception.launch.py model_path:=models/best.onnx
+    ros2 launch agribot_bringup perception.launch.py model_path:=models/cropweed_best.onnx
     ```
 
 4.  **Performance Expectations** (RPi5 CPU):

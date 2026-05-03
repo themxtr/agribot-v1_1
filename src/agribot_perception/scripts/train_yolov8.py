@@ -1,11 +1,11 @@
 import os
+import shutil
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from ultralytics import YOLO
 from ultralytics.utils.metrics import ConfusionMatrix
-from sklearn.utils import resample
 import pandas as pd
 from pathlib import Path
 
@@ -13,12 +13,32 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "."))
 from custom_modules import SimAM, EMA, BiFPN_Concat, MPDIoU
 
-# Register custom modules in ultralytics
-import ultralytics.nn.modules as modules
-from ultralytics.nn.tasks import parse_model
-# Monkeypatching or adding to the modules namespace
+# Register custom modules and Monkeypatch C2f
+import ultralytics.nn.tasks as tasks
+import ultralytics.nn.modules.block as block
+from custom_modules import SimAM, EMA, BiFPN_Concat, MPDIoU
+
+# Global Monkeypatch for C2f to include SimAM + EMA
+_original_C2f_init = block.C2f.__init__
+_original_C2f_forward = block.C2f.forward
+
+def new_C2f_init(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+    _original_C2f_init(self, c1, c2, n, shortcut, g, e)
+    self.simam = SimAM(c2)
+    self.ema = EMA(c2)
+
+def new_C2f_forward(self, x):
+    # Call original forward then apply attention
+    res = _original_C2f_forward(self, x)
+    return self.ema(self.simam(res))
+
+block.C2f.__init__ = new_C2f_init
+block.C2f.forward = new_C2f_forward
+
+# Register other modules
 for module in [SimAM, EMA, BiFPN_Concat, MPDIoU]:
-    setattr(modules, module.__name__, module)
+    setattr(tasks, module.__name__, module)
+    tasks.__dict__[module.__name__] = module
 
 def run_bootstrap_validation(model, dataset_yaml, n_iterations=1000):
     print(f"Running bootstrap simulation (n={n_iterations})...")
@@ -59,7 +79,7 @@ def main():
     
     # 1. Load Model with Custom YAML
     yaml_path = "d:/agribot/src/agribot_perception/models/agribot_yolov8.yaml"
-    dataset_yaml = "d:/agribot/datasets/unified_crop_weed/dataset.yaml"
+    dataset_yaml = "d:/agribot/datasets/unified_rice_weed_yolo/data.yaml"
     
     # Verify dataset exists
     if not os.path.exists(dataset_yaml):
@@ -70,8 +90,49 @@ def main():
     # We use YOLOv8n weights but our custom architecture
     model = YOLO(yaml_path).load('yolov8n.pt') 
     
-    # 2. Train
-    # Using lightweight CPU params
+    # Define intervention callbacks
+    def trigger1_callback(trainer):
+        if trainer.epoch == 20:
+            recall = trainer.metrics.get('metrics/recall(B)', 0)
+            if recall < 0.35:
+                print(f"Trigger 1 activated: Reducing label_smoothing from 0.1 to 0.05 (Recall: {recall:.3f})")
+                trainer.args.label_smoothing = 0.05
+                # Write to override file
+                import yaml
+                override_path = "d:/agribot/train_args_override.yaml"
+                with open(override_path, 'w') as f:
+                    yaml.dump({'label_smoothing': 0.05}, f)
+    
+    def trigger2_callback(trainer):
+        if trainer.epoch == 25:
+            recall = trainer.metrics.get('metrics/recall(B)', 0)
+            if recall < 0.40:
+                print(f"Trigger 2 activated: Increasing box loss weight from 7.5 to 9.0 (Recall: {recall:.3f})")
+                trainer.args.box = 9.0
+                # Write to override file
+                import yaml
+                override_path = "d:/agribot/train_args_override.yaml"
+                with open(override_path, 'a') as f:
+                    yaml.dump({'box': 9.0}, f)
+    
+    def trigger3_callback(trainer):
+        if trainer.epoch == 30:
+            map50 = trainer.metrics.get('metrics/mAP50(B)', 0)
+            if map50 < 0.45:
+                print(f"Trigger 3 activated: Dataset expansion required (mAP@0.5: {map50:.3f})")
+                # Note: Dataset expansion requires manual execution of ingestion pipeline
+                # This would restart training from best.pt with expanded dataset
+                # For now, log the trigger
+                with open("d:/agribot/trigger3_activated.log", 'w') as f:
+                    f.write(f"Epoch {trainer.epoch}: mAP@0.5 {map50:.3f} < 0.45\n")
+    
+    # Add callbacks
+    model.add_callback('on_train_epoch_end', trigger1_callback)
+    model.add_callback('on_train_epoch_end', trigger2_callback)
+    model.add_callback('on_train_epoch_end', trigger3_callback)
+    
+# 2. Train
+    # Using optimized CPU params for small datasets (75 images)
     print("Starting training on CPU...")
     model.train(
         data=dataset_yaml,
@@ -80,19 +141,24 @@ def main():
         batch=4,
         device='cpu',
         lr0=0.01,
-        lrf=0.01,
+        lrf=0.001,  # Proper LR decay (final LR = 0.001x initial)
         weight_decay=0.0005,
         warmup_epochs=5,
         optimizer='AdamW',
         mosaic=1.0,
-        close_mosaic=15,
+        close_mosaic=0,  # Keep mosaic for ALL epochs - critical for small datasets!
         mixup=0.15,
-        erasing=0.3,
+        copy_paste=0.1,  # Key augmentation for small datasets
+        erasing=0.1,  # Less aggressive for 75 images
         hsv_h=0.015,
         hsv_s=0.7,
         hsv_v=0.4,
         cos_lr=True,
         label_smoothing=0.1,
+        patience=20,  # Early stopping to prevent overfitting
+        cache='ram',  # Pre-load all images into RAM for faster training
+        workers=4,  # Parallel dataloader prefetching across 4 cores
+        amp=False,  # Disable AMP for CPU (no benefit, small overhead)
         project='runs/train',
         name='agribot_v1_overhaul'
     )

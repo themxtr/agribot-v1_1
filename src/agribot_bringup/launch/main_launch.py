@@ -80,7 +80,7 @@ def generate_launch_description():
 
     ld.add_action(DeclareLaunchArgument('use_sim_time', default_value='false'))
     ld.add_action(DeclareLaunchArgument('model_path',
-                  default_value='C:/Users/FRIDAY/runs/detect/runs/precision_agri/yolov8_p2_simam_ema-4/weights/best.pt'))
+                  default_value='models/cropweed_best.onnx'))
     ld.add_action(DeclareLaunchArgument('enable_camera',
                   default_value=enable_camera_str,
                   description='Override: set false to disable camera even if detected'))
@@ -222,10 +222,10 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'model_path': LaunchConfiguration('model_path'),
-                'conf_threshold': 0.25,
+                'conf_threshold': 0.30,
                 'slice_size': 640,
                 'overlap_ratio': 0.2,
-                'nms_iou_threshold': 0.75,
+                'nms_iou_threshold': 0.45,
                 'max_fps': 5.0,
                 'show_window': False,
                 'annotated_topic': 'image_annotated'

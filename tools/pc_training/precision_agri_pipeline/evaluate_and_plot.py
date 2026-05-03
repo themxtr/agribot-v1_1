@@ -16,6 +16,42 @@ try:
 except ImportError:
     from common import find_images, read_yaml  # type: ignore
 
+import os
+import sys
+import ultralytics.nn.tasks as tasks
+import ultralytics.nn.modules.block as block
+
+# Add scripts directory to path for custom_modules
+scripts_dir = r"d:\agribot\src\agribot_perception\scripts"
+if scripts_dir not in sys.path:
+    sys.path.append(scripts_dir)
+
+try:
+    from custom_modules import SimAM, EMA, BiFPN_Concat, MPDIoU
+    
+    # Global Monkeypatch for C2f to include SimAM + EMA
+    _original_C2f_init = block.C2f.__init__
+    _original_C2f_forward = block.C2f.forward
+
+    def new_C2f_init(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        _original_C2f_init(self, c1, c2, n, shortcut, g, e)
+        self.simam = SimAM(c2)
+        self.ema = EMA(c2)
+
+    def new_C2f_forward(self, x):
+        res = _original_C2f_forward(self, x)
+        return self.ema(self.simam(res))
+
+    block.C2f.__init__ = new_C2f_init
+    block.C2f.forward = new_C2f_forward
+
+    # Register other modules
+    for module in [SimAM, EMA, BiFPN_Concat, MPDIoU]:
+        setattr(tasks, module.__name__, module)
+        tasks.__dict__[module.__name__] = module
+except ImportError:
+    print("Warning: custom_modules not found, proceeding with standard modules.")
+
 
 @dataclass
 class DetRecord:

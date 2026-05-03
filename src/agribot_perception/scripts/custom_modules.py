@@ -3,10 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class SimAM(nn.Module):
-    """
-    SimAM: A Simple, Parameter-Free Attention Module for Convolutional Neural Networks
-    """
-    def __init__(self, e_lambda=1e-4):
+    def __init__(self, channels, e_lambda=1e-4): # Added channels arg for compatibility
         super(SimAM, self).__init__()
         self.activaton = nn.Sigmoid()
         self.e_lambda = e_lambda
@@ -46,28 +43,33 @@ class EMA(nn.Module):
         return out.view(b, c, h, w)
 
 class BiFPN_Concat(nn.Module):
-    """
-    Weighted BiFPN feature fusion supporting N inputs
-    """
-    def __init__(self, dimension, n_inputs=2):
+    def __init__(self, dimension=256):
         super(BiFPN_Concat, self).__init__()
-        self.w = nn.Parameter(torch.ones(n_inputs, dtype=torch.float32), requires_grad=True)
+        self.w = nn.Parameter(torch.ones(3, dtype=torch.float32), requires_grad=True)
         self.epsilon = 0.0001
-        self.conv = nn.Sequential(
-            nn.Conv2d(dimension, dimension, 1),
-            nn.BatchNorm2d(dimension),
-            nn.SiLU()
-        )
 
     def forward(self, x):
-        if not isinstance(x, (list, tuple)):
-            return self.conv(x)
-        w = self.w
+        # x is a list of tensors
+        w = self.w[:len(x)]
         weight = w / (torch.sum(w, dim=0) + self.epsilon)
         out = 0
         for i in range(len(x)):
             out += weight[i] * x[i]
-        return self.conv(out)
+        return out
+
+class C2f_Attention(nn.Module):
+    """Standard C2f with SimAM and EMA attention."""
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__()
+        from ultralytics.nn.modules import C2f
+        self.c2f = C2f(c1, c2, n, shortcut, g, e)
+        self.attention = nn.Sequential(
+            SimAM(c2),
+            EMA(c2)
+        )
+
+    def forward(self, x):
+        return self.attention(self.c2f(x))
 
 class MPDIoU(nn.Module):
     """

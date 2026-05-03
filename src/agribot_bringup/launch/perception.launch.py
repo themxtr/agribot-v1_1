@@ -25,10 +25,10 @@ def generate_launch_description():
     ld.add_action(
         DeclareLaunchArgument(
             'model_path',
-            default_value='C:/Users/FRIDAY/runs/detect/runs/precision_agri/yolov8_p2_simam_ema-4/weights/best.pt',
+            default_value='runs/agribot_v1_overhaul-4/weights/best.pt',
         )
     )
-    ld.add_action(DeclareLaunchArgument('conf_threshold', default_value='0.25'))
+    ld.add_action(DeclareLaunchArgument('conf_threshold', default_value='0.30'))
     ld.add_action(DeclareLaunchArgument('enable_camera', default_value='true' if can_launch else 'false'))
 
     if not can_launch:
@@ -68,7 +68,7 @@ def generate_launch_description():
                     'conf_threshold': LaunchConfiguration('conf_threshold'),
                     'slice_size': 640,
                     'overlap_ratio': 0.2,
-                    'nms_iou_threshold': 0.75,
+                    'nms_iou_threshold': 0.45,
                     'max_fps': 5.0,
                     'show_window': False,
                     'annotated_topic': 'image_annotated',
