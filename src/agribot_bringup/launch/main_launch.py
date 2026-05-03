@@ -24,7 +24,7 @@ from launch.actions import (
     OpaqueFunction,
 )
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -275,33 +275,11 @@ def generate_launch_description():
     # ═══════════════════════════════════════════════════════════════════════
     # ALWAYS-ON: Telemetry & Remote Access
     # ═══════════════════════════════════════════════════════════════════════
-    # 1. ROS Bridge (Websocket for Browser Dashboard)
-    ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('rosbridge_server'), 
-                         'launch', 'rosbridge_websocket_launch.xml')
-        ),
-        launch_arguments={'port': '9090', 'unregister_timeout': '60.0'}.items()
-    ))
+    # 1. Telemetry Stack (Already contains ROS Bridge, Video Server, and Foxglove)
+    # No changes needed here as it is already included above via telemetry.launch.py
 
-    # 2. Web Video Server (MJPEG Streams for Browser)
-    ld.add_action(Node(
-        package='web_video_server',
-        executable='web_video_server',
-        name='web_video_server',
-        parameters=[{'port': 8080}],
-        output='screen'
-    ))
-
-    # 3. Foxglove Bridge (Advanced Diagnostics)
-    ld.add_action(Node(
-        package='foxglove_bridge',
-        executable='foxglove_bridge_node',
-        name='foxglove_bridge',
-        parameters=[{'port': 8765}],
-        output='screen'
-    ))
-
+    # 2. Advanced Diagnostics (Handled by telemetry stack)
+    # 3. System Guard + RViz2
     # ═══════════════════════════════════════════════════════════════════════
     # ALWAYS-ON: System Guard + RViz2
     # ═══════════════════════════════════════════════════════════════════════

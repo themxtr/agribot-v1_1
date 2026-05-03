@@ -28,6 +28,7 @@ setup(
         'console_scripts': [
             'system_guard = agribot_bringup.system_guard:main',
             'hw_scanner = agribot_bringup.hw_detection:_cli_main',
+            'agribot_sim_core = agribot_bringup.agribot_sim_core:main',
         ],
     },
 )

@@ -1,7 +1,7 @@
 import os
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -21,7 +21,7 @@ def generate_launch_description():
     # 1. ROS Bridge (Websocket for Browser Dashboard)
     # Default Port: 9090
     ld.add_action(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
+        AnyLaunchDescriptionSource(
             os.path.join(get_package_share_directory('rosbridge_server'), 
                          'launch', 'rosbridge_websocket_launch.xml')
         ),
@@ -45,7 +45,7 @@ def generate_launch_description():
     # Standardized Port: 8765
     ld.add_action(Node(
         package='foxglove_bridge',
-        executable='foxglove_bridge_node',
+        executable='foxglove_bridge',
         name='foxglove_bridge',
         parameters=[{'port': foxglove_port}],
         output='screen'

@@ -3,164 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agribot v1.1 | Command Center</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>AGRIBOT v1.1 | Command Center</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+    <script src="libs/eventemitter2.min.js"></script>
+    <script src="libs/roslib.min.js"></script>
 </head>
-<body class="dark-theme">
-    <!-- Connection Lost Overlay -->
+<body class="premium-theme">
+    <!-- Critical Connection Overlay -->
     <div id="disconnect-overlay" class="overlay">
-        <div class="overlay-content">
-            <div class="spinner"></div>
-            <h1>CONNECTION LOST</h1>
-            <p>Attempting to reconnect to Agribot...</p>
-            <span class="warning-text">ALL CONTROLS DISABLED FOR SAFETY</span>
+        <div class="glass-card">
+            <div class="loader"></div>
+            <h1>LINK INTERRUPTED</h1>
+            <p>Re-establishing secure connection to Agribot...</p>
+            <div class="connection-hint">Ensure you are on the same Wi-Fi as the robot.</div>
         </div>
     </div>
-    <div class="app-container">
-        <!-- Sidebar / Navigation -->
-        <aside class="sidebar">
-            <div class="logo-section">
-                <div class="logo-icon">🌾</div>
-                <div class="logo-text">
-                    <h1>AGRIBOT</h1>
-                    <span>v1.1 PRO</span>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="glass-sidebar">
+            <div class="brand">
+                <div class="logo">🌾</div>
+                <div class="brand-text">
+                    <span class="title">AGRIBOT</span>
+                    <span class="version">v1.1 ULTIMATE</span>
                 </div>
             </div>
-            
-            <nav class="main-nav">
-                <div class="nav-item active" data-view="dashboard">
-                    <span class="icon">📊</span>
-                    <span class="label">Dashboard</span>
+
+            <div class="system-status-card">
+                <div class="status-header">
+                    <span class="label">MODEM LINK</span>
+                    <span id="ros-status-badge" class="badge">OFFLINE</span>
                 </div>
-                <div class="nav-item" data-view="telemetry">
-                    <span class="icon">📈</span>
-                    <span class="label">Telemetry</span>
+                <div class="heartbeat-container">
+                    <div class="pulse-line"></div>
                 </div>
-                <div class="nav-item" data-view="settings">
-                    <span class="icon">⚙️</span>
-                    <span class="label">System</span>
-                </div>
+            </div>
+
+            <nav class="side-nav">
+                <div class="nav-btn active"><span>📊</span> Dashboard</div>
+                <div class="nav-btn"><span>🗺️</span> Navigation</div>
+                <div class="nav-btn"><span>🛠️</span> Diagnostics</div>
             </nav>
 
-            <div class="system-health">
-                <h3>HARDWARE</h3>
-                <div class="health-item" id="hw-camera">
-                    <span class="status-dot"></span>
-                    <span class="label">Vision System</span>
+            <div class="hw-inventory">
+                <h3>HARDWARE HEALTH</h3>
+                <div class="hw-item" id="hw-camera">
+                    <span class="dot"></span> Vision System
                 </div>
-                <div class="health-item" id="hw-lidar">
-                    <span class="status-dot"></span>
-                    <span class="label">LiDAR Scanner</span>
+                <div class="hw-item" id="hw-lidar">
+                    <span class="dot"></span> LiDAR Scanner
                 </div>
-                <div class="health-item" id="hw-motor">
-                    <span class="status-dot"></span>
-                    <span class="label">Motor Bridge</span>
+                <div class="hw-item" id="hw-motor">
+                    <span class="dot"></span> Traction Module
                 </div>
-            </div>
-
-            <div class="connection-status" id="ros-status">
-                <span class="status-indicator"></span>
-                <span class="status-text">DISCONNECTED</span>
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="content">
-            <header class="top-bar">
-                <div class="state-badge-container">
-                    <span class="label">CURRENT STATE:</span>
-                    <div id="system-state" class="state-badge state-safe">SAFE</div>
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <header class="top-nav">
+                <div class="state-container">
+                    <span class="state-label">SYSTEM STATE</span>
+                    <div id="system-state" class="state-display state-safe">INITIALIZING...</div>
                 </div>
-                <div class="telemetry-summary">
-                    <div class="metric">
-                        <span class="label">FPS</span>
-                        <span id="stat-fps" class="value">0.0</span>
+                <div class="telemetry-bar">
+                    <div class="stat">
+                        <span class="label">STREAM</span>
+                        <span id="stat-fps" class="value">0.0</span> <small>FPS</small>
                     </div>
-                    <div class="metric">
+                    <div class="stat">
                         <span class="label">LATENCY</span>
-                        <span id="stat-latency" class="value">0ms</span>
+                        <span id="stat-latency" class="value">0</span> <small>ms</small>
                     </div>
                 </div>
             </header>
 
             <section class="dashboard-grid">
-                <!-- Video Feed -->
-                <div class="panel video-panel">
+                <!-- Vision Panel -->
+                <div class="panel vision-panel glass-effect">
                     <div class="panel-header">
-                        <h2>LIVE VISION FEED</h2>
+                        <h2>REAL-TIME PERCEPTION</h2>
                         <div class="feed-selector">
-                            <button class="active" data-topic="/detections_annotated">ANNOTATED</button>
+                            <button class="active" data-topic="/detections_annotated">AI FEED</button>
                             <button data-topic="/image_raw">RAW</button>
                         </div>
                     </div>
-                    <div class="video-container">
-                        <img id="video-feed" src="placeholder.png" alt="Video Stream">
-                        <div class="overlay-info">
+                    <div class="video-stage">
+                        <img id="video-feed" src="placeholder.png" alt="Robot Feed">
+                        <div class="video-overlay">
                             <span id="stream-topic">/detections_annotated</span>
+                            <div class="rec-dot"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Controls -->
-                <div class="panel control-panel">
+                <!-- Control Panel -->
+                <div class="panel control-panel glass-effect">
                     <div class="panel-header">
-                        <h2>MODE SELECTION</h2>
+                        <h2>MISSION CONTROL</h2>
                     </div>
-                    <div class="mode-buttons">
+                    <div class="action-grid">
                         <button id="btn-activate" class="btn-primary" disabled>
                             <span class="icon">⚡</span>
                             <span class="label">ACTIVATE SYSTEM</span>
                         </button>
                         
-                        <div class="mode-row">
+                        <div class="mode-toggles">
                             <button id="btn-scan" class="btn-mode" disabled>
                                 <span class="icon">🛰️</span>
                                 <span class="label">SCAN FIELD</span>
                             </button>
                             <button id="btn-detect" class="btn-mode" disabled>
                                 <span class="icon">👁️</span>
-                                <span class="label">DETECT PLANTS</span>
+                                <span class="label">DETECT</span>
                             </button>
                         </div>
 
-                        <button id="btn-spray" class="btn-danger" disabled>
+                        <button id="btn-spray" class="btn-spray" disabled>
                             <span class="icon">🚿</span>
-                            <span class="label">ENGAGE SPRAYING</span>
+                            <span class="label">SPRAY WEEDS</span>
                         </button>
                         
                         <button id="btn-emergency" class="btn-emergency">
-                            <span class="icon">🛑</span>
-                            <span class="label">EMERGENCY STOP</span>
+                            STOP SYSTEM
                         </button>
                     </div>
-                </div>
 
-                <!-- System Logs -->
-                <div class="panel logs-panel">
-                    <div class="panel-header">
-                        <h2>SYSTEM EVENTS</h2>
-                    </div>
-                    <div class="log-container" id="log-window">
-                        <div class="log-entry system">Dashboard initialized. Connecting to agribot.local...</div>
+                    <div class="remote-dpad">
+                        <h3>REMOTE DRIVE</h3>
+                        <div class="dpad-container">
+                            <button class="dpad-btn" id="ctrl-w">▲</button>
+                            <div class="dpad-mid">
+                                <button class="dpad-btn" id="ctrl-a">◀</button>
+                                <button class="dpad-btn" id="ctrl-s">▼</button>
+                                <button class="dpad-btn" id="ctrl-d">▶</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
         </main>
     </div>
 
-    <!-- Modals -->
-    <div id="modal-confirm" class="modal">
-        <div class="modal-content">
-            <h3>⚠️ SAFETY CONFIRMATION</h3>
-            <p id="confirm-msg">Are you sure you want to engage SPRAY mode? This will unlock the nozzle solenoid for autonomous actuation.</p>
-            <div class="modal-actions">
-                <button id="modal-cancel">CANCEL</button>
-                <button id="modal-confirm-btn" class="danger">CONFIRM ACTION</button>
+    <!-- Confirmation Modal -->
+    <div id="modal-confirm" class="modal-overlay">
+        <div class="modal-card">
+            <h2>CONFIRM ACTION</h2>
+            <p id="modal-text">Are you sure you want to proceed?</p>
+            <div class="modal-btns">
+                <button id="modal-cancel" class="btn-secondary">CANCEL</button>
+                <button id="modal-confirm-btn" class="btn-confirm">PROCEED</button>
             </div>
         </div>
     </div>

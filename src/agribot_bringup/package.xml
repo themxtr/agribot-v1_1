@@ -25,6 +25,9 @@
   <exec_depend>agribot_msgs</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>usb_cam</exec_depend>
+  <exec_depend>rosbridge_suite</exec_depend>
+  <exec_depend>web_video_server</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>
