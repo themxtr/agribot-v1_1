@@ -181,15 +181,7 @@ def generate_launch_description():
                 {'use_sim_time': use_sim_time}
             ]
         ))
-        ld.add_action(Node(
-            condition=enable_slam_condition,
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_tf_odom_to_base',
-            arguments=['--x', '0', '--y', '0', '--z', '0',
-                       '--yaw', '0', '--pitch', '0', '--roll', '0',
-                       '--frame-id', 'odom', '--child-frame-id', 'base_link']
-        ))
+        # Removed static_tf_odom_to_base as motor_bridge now publishes dynamic odom
 
     # ═══════════════════════════════════════════════════════════════════════
     # CONDITIONAL: Camera + Perception Pipeline
@@ -259,7 +251,7 @@ def generate_launch_description():
         name='motor_bridge',
         parameters=[{
             'port': hw['motor_device'] or '/dev/ttyUSB1',
-            'baud': 9600
+            'baud': 115200
         }],
         output='screen'
     ))

@@ -12,6 +12,10 @@ const int ENB = 5;  // Right Motor PWM
 const int IN3 = 7;
 const int IN4 = 8;
 
+// Encoder Pin Definitions
+const int L_ENC_PIN = 2; // Interrupt pin
+const int R_ENC_PIN = 3; // Interrupt pin
+
 // Ultrasonic Sensor Pins
 const int TRIG_PIN = 9;
 const int ECHO_PIN = 10;
@@ -20,13 +24,23 @@ const int ECHO_PIN = 10;
 const int CURRENT_PIN = A0;
 
 // Variables
+volatile long leftEncoderTicks = 0;
+volatile long rightEncoderTicks = 0;
 int motorSpeed = 0;
 long duration;
 int distance;
 float currentVal = 0.0;
 
+void leftEncoderISR() {
+  leftEncoderTicks++;
+}
+
+void rightEncoderISR() {
+  rightEncoderTicks++;
+}
+
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   // Motor Pins
   pinMode(ENA, OUTPUT);
@@ -39,9 +53,18 @@ void setup() {
   // Ultrasonic Pins
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+
+  // Encoder Pins
+  pinMode(L_ENC_PIN, INPUT_PULLUP);
+  pinMode(R_ENC_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(L_ENC_PIN), leftEncoderISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(R_ENC_PIN), rightEncoderISR, RISING);
   
   stopMotors();
-  Serial.println("STATUS:READY");
+  // Report identity and configuration for automatic discovery
+  Serial.println("STATUS:READY,MODEL:Agribot_v1.1");
+  Serial.println("CONFIG:PINS:ENA=3,ENB=5,L_ENC=2,R_ENC=3,TRIG=9,ECHO=10");
+  Serial.println("CONFIG:PARAMS:R=0.025,B=0.22,CPR=716");
 }
 
 void loop() {
@@ -53,9 +76,9 @@ void loop() {
     parseCommand(cmd);
   }
   
-  // Periodic status feedback (every 500ms approx)
+  // Periodic status feedback (every 100ms for smoother odometry)
   static unsigned long lastUpdate = 0;
-  if (millis() - lastUpdate > 500) {
+  if (millis() - lastUpdate > 100) {
     sendStatus();
     lastUpdate = millis();
   }
@@ -137,5 +160,7 @@ void readCurrent() {
 void sendStatus() {
   Serial.print("SPEED:"); Serial.print(motorSpeed);
   Serial.print(",DIST:"); Serial.print(distance);
-  Serial.print(",CURR:"); Serial.println(currentVal);
+  Serial.print(",CURR:"); Serial.print(currentVal);
+  Serial.print(",L_ENC:"); Serial.print(leftEncoderTicks);
+  Serial.print(",R_ENC:"); Serial.println(rightEncoderTicks);
 }

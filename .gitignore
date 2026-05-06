@@ -15,7 +15,7 @@ __pycache__/
 # Dataset Caches
 *.cache
 dataset/
-
+.sixth/
 # Datasets & Photos
 datasets/
 cropweed_dataset/

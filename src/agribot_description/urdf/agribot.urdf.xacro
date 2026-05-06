@@ -69,13 +69,13 @@
     <link name="${prefix}_wheel">
       <visual>
         <geometry>
-          <cylinder length="0.05" radius="0.1"/>
+          <cylinder length="0.04" radius="0.025"/>
         </geometry>
         <material name="black"/>
       </visual>
       <collision>
         <geometry>
-          <cylinder length="0.05" radius="0.1"/>
+          <cylinder length="0.04" radius="0.025"/>
         </geometry>
       </collision>
     </link>
@@ -83,15 +83,15 @@
     <joint name="${prefix}_wheel_joint" type="continuous">
       <parent link="base_link"/>
       <child link="${prefix}_wheel"/>
-      <origin xyz="${x} ${y} -0.05" rpy="${pi/2} 0 0"/>
+      <origin xyz="${x} ${y} -0.075" rpy="${pi/2} 0 0"/>
       <axis xyz="0 0 1"/>
     </joint>
   </xacro:macro>
 
-  <xacro:wheel prefix="front_left" x="0.2" y="0.25"/>
-  <xacro:wheel prefix="front_right" x="0.2" y="-0.25"/>
-  <xacro:wheel prefix="rear_left" x="-0.2" y="0.25"/>
-  <xacro:wheel prefix="rear_right" x="-0.2" y="-0.25"/>
+  <xacro:wheel prefix="front_left" x="0.2" y="0.11"/>
+  <xacro:wheel prefix="front_right" x="0.2" y="-0.11"/>
+  <xacro:wheel prefix="rear_left" x="-0.2" y="0.11"/>
+  <xacro:wheel prefix="rear_right" x="-0.2" y="-0.11"/>
 
   <!-- Gazebo Plugins -->
   <gazebo>
@@ -101,8 +101,12 @@
       </ros>
       <left_joint>front_left_wheel_joint</left_joint>
       <right_joint>front_right_wheel_joint</right_joint>
-      <wheel_separation>0.5</wheel_separation>
-      <wheel_diameter>0.2</wheel_diameter>
+      <wheel_separation>0.22</wheel_separation>
+      <wheel_diameter>0.05</wheel_diameter>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_link</robot_base_frame>
     </plugin>
   </gazebo>
 

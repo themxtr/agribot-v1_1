@@ -148,6 +148,8 @@ def generate_launch_description():
         output='screen',
     ))
 
+    # Dynamic odom is now provided by Gazebo diff_drive plugin
+
     # ── 4. Rosbag2 Recording (optional) ─────────────────────────────────
     # Records logic-relevant topics only; excludes /image_raw/compressed
     # to prevent multi-GB bag files.

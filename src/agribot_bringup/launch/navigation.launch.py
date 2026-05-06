@@ -27,12 +27,5 @@ def generate_launch_description():
         # 2. Static Transform from odom to base_link (if not provided by odometry)
         # Note: Slam Toolbox can handle the odom->base_link transform if set to publish, 
         # but for a field bot, we often need a base transform.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_tf_odom_to_base',
-            arguments=['--x', '0', '--y', '0', '--z', '0',
-                       '--yaw', '0', '--pitch', '0', '--roll', '0',
-                       '--frame-id', 'odom', '--child-frame-id', 'base_link']
-        )
+        # Dynamic odom is now provided by motor_bridge or simulation plugin
     ])
